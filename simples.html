@@ -33,7 +33,8 @@
 <main>
   <p style="text-align:right;margin:0 0 6px;font-size:.9rem"><a href="./" style="color:var(--muted)">Ver painel completo</a></p>
   <h1>Passagens Rio → Carajás</h1>
-  <p class="sub">Ida <b>quarta, 25/11</b> · Volta <b>segunda, 30/11</b> · <b>2 pessoas</b> · preço total, ida e volta</p>
+  <p class="sub" id="sub">carregando…</p>
+  <select id="viagem" style="font-size:1.05rem;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);width:100%;margin-bottom:6px" aria-label="Viagem"></select>
 
   <div class="card" id="melhor">
     <p class="label">Menor preço agora</p>
@@ -58,7 +59,7 @@
   <p class="note">Os preços são consultados automaticamente a cada hora no Google Voos (GOL), MaxMilhas e Decolar. Incluem mala de mão. O valor pode mudar na hora da compra; confira sempre no site antes de pagar.</p>
 </main>
 <script>
-const LINKS = {
+let LINKS = {
   'Google Voos (GOL)': 'https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=GIG&para=CKS&ida=25-11-2026&volta=30-11-2026&ADT=2&CHD=0&INF=0',
   'MaxMilhas': 'https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/2026-11-25/2026-11-30/2/0/0/EC',
   'Decolar': 'https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/2026-11-25/2026-11-30/2/0/0'
@@ -70,7 +71,25 @@ const dur = m => Math.floor(m/60) + 'h' + (m%60 ? String(m%60).padStart(2,'0') :
 const desc = (cia, orig, part, cheg, mais, dest) => `${cia}, sai ${part} de ${orig === 'GIG' ? 'Galeão' : orig === 'SDU' ? 'Santos Dumont' : orig} e chega ${cheg}${mais ? ' do dia seguinte' : ''}`;
 async function carregar() {
   const get = f => fetch('data/' + f + '?t=' + Date.now()).then(r => r.ok ? r.json() : []);
-  const [ofertas, combos, coletas] = await Promise.all([get('ofertas.json'), get('combos.json'), get('coletas.json')]);
+  let [ofertas, combos, coletas, viagens] = await Promise.all([get('ofertas.json'), get('combos.json'), get('coletas.json'), get('viagens.json')]);
+  const SEM = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  const dsem = d => SEM[new Date(d + 'T12:00:00Z').getUTCDay()] + ', ' + d.slice(8,10) + '/' + d.slice(5,7);
+  const sel = document.getElementById('viagem');
+  if (!viagens.length) viagens = [{ id: 'padrao', ida: '2026-11-25', volta: '2026-11-30', adultos: 2, flex: 0, status: 'ativa' }];
+  const qid = new URLSearchParams(location.search).get('viagem');
+  const v = viagens.find(x => x.id === (sel.value || qid)) || viagens.find(x => x.status === 'ativa') || viagens[0];
+  sel.replaceChildren(...viagens.map(x => new Option(`${dsem(x.ida)} → ${dsem(x.volta)} · ${x.adultos} pessoa${x.adultos > 1 ? 's' : ''}${x.status === 'encerrada' ? ' (encerrada)' : ''}`, x.id)));
+  sel.value = v.id; sel.hidden = viagens.length < 2; sel.onchange = carregar;
+  document.getElementById('sub').innerHTML = '';
+  document.getElementById('sub').append('Ida ', Object.assign(document.createElement('b'), { textContent: dsem(v.ida) }), ' · Volta ', Object.assign(document.createElement('b'), { textContent: dsem(v.volta) }), ' · ', Object.assign(document.createElement('b'), { textContent: v.adultos + ' pessoa' + (v.adultos > 1 ? 's' : '') }), ' · preço total, ida e volta');
+  const br = d => d.slice(8,10) + '-' + d.slice(5,7) + '-' + d.slice(0,4);
+  LINKS = { 'Google Voos (GOL)': `https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=GIG&para=CKS&ida=${br(v.ida)}&volta=${br(v.volta)}&ADT=${v.adultos}&CHD=0&INF=0`,
+    'MaxMilhas': `https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/${v.ida}/${v.volta}/${v.adultos}/0/0/EC`,
+    'Decolar': `https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/${v.ida}/${v.volta}/${v.adultos}/0/0` };
+  const fx = Number(v.flex_usada ?? v.flex ?? 0);
+  const perto = (d, b) => Math.abs((Date.parse(d + 'T12:00:00Z') - Date.parse(b + 'T12:00:00Z')) / 864e5) <= fx;
+  ofertas = ofertas.filter(o => Number(o.adultos ?? 2) === Number(v.adultos) && perto(o.data_voo, o.sentido === 'ida' ? v.ida : v.volta));
+  combos = combos.filter(c => (c.data_ida ?? '2026-11-25') === v.ida && (c.data_volta ?? '2026-11-30') === v.volta && Number(c.adultos ?? 2) === Number(v.adultos));
   // opções por coleta
   const porColeta = new Map();
   const add = (cid, o) => { if (!porColeta.has(cid)) porColeta.set(cid, []); porColeta.get(cid).push(o); };

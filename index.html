@@ -32,12 +32,12 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 .site-top { display: flex; justify-content: flex-end; font-size: 13px; margin-bottom: 6px; }
 .site-top a { color: var(--color-fg-muted); }
 .mx-card { overflow-x: auto; }
-#tab-sites td:nth-child(3), #tab-combos td:nth-child(3), #tab-combos td:nth-child(4), #tab-coletas td:nth-child(7) { white-space: normal; min-width: 12rem; }
+#tab-sites td:nth-child(3), #tab-combos td:nth-child(3), #tab-combos td:nth-child(4), #tab-coletas td:nth-child(8) { white-space: normal; min-width: 12rem; }
 
 </style>
 <script>
 (function () {
-  const FILES = { ofertas: 'data/ofertas.json', coletas: 'data/coletas.json', combos: 'data/combos.json' };
+  const FILES = { ofertas: 'data/ofertas.json', coletas: 'data/coletas.json', combos: 'data/combos.json', viagens: 'data/viagens.json' };
   const DEFAULTS = { filtro: 'qualquer', min_obs: 24 };
   const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
   const store = {}; const calcs = {}; const order = []; const cbs = [];
@@ -134,19 +134,45 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
 .mx-fail { display: flex; align-items: center; justify-content: center; gap: .4rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); min-height: 6rem; }
 .mx-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.mx-trip { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: end; }
+.mx-trip select { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-sm); max-width: 100%; }
+.mx-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: var(--cds-gap-sm); align-items: end; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.mx-form label { display: flex; flex-direction: column; gap: var(--cds-gap-xs); }
+.mx-form input, .mx-form select { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); min-width: 0; }
+.mx-btn { font: inherit; font-weight: var(--cds-font-weight-medium); color: var(--color-bg); background: var(--color-fg); border: 0; border-radius: var(--cds-radius); padding: var(--cds-pad-sm) var(--cds-pad-md); cursor: pointer; text-decoration: none; display: inline-block; text-align: center; }
+.mx-btn.sec { color: var(--color-fg); background: transparent; border: 1px solid var(--color-border-line); }
+.mx-pill { display: inline-block; font-size: var(--cds-font-size-caption); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 0 var(--cds-pad-sm); margin-left: var(--cds-gap-xs); color: var(--color-fg-muted); }
 </style>
 
 <div class="mx">
   <header id="topo">
     <h1>Monitor RIO → Carajás (CKS)</h1>
-    <p class="mx-sub">Ida 25/11/2026 · Volta 30/11/2026 · 2 adultos · Galeão e Santos Dumont · preços totais com tarifa mais barata (inclui mala de mão 12 kg) · fontes: Google Voos (GOL), MaxMilhas e Decolar</p>
+    <p class="mx-sub" id="sub-viagem">—</p>
     <p class="mx-take" id="takeaway" data-source="resumo sites"><span class="dash-skeleton">—</span></p>
-    <p class="mx-links" id="links-topo">Ver passagem:
-      <a class="mx-link" target="_blank" rel="noopener noreferrer" href="https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTExLTI1agwIAhIIL20vMDZnbXJyBwgBEgNDS1MaIxIKMjAyNi0xMS0zMGoHCAESA0NLU3IMCAISCC9tLzA2Z21yQAFAAUgBcAGCAQsI____________AZgBAQ&amp;hl=pt-BR&amp;gl=BR&amp;curr=BRL">Google Voos (ida e volta)</a>
-      <a class="mx-link" target="_blank" rel="noopener noreferrer" href="https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&amp;tipo=RT&amp;de=GIG&amp;para=CKS&amp;ida=25-11-2026&amp;volta=30-11-2026&amp;ADT=2&amp;CHD=0&amp;INF=0">GOL saindo do Galeão</a>
-      <a class="mx-link" target="_blank" rel="noopener noreferrer" href="https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&amp;tipo=RT&amp;de=SDU&amp;para=CKS&amp;ida=25-11-2026&amp;volta=30-11-2026&amp;ADT=2&amp;CHD=0&amp;INF=0">GOL saindo do Santos Dumont</a>
-    </p>
+    <p class="mx-links" id="links-topo"></p>
   </header>
+
+  <section id="viagens-sec" class="mx-card">
+    <div class="mx-trip">
+      <label class="mx-note" style="margin:0; display:flex; flex-direction:column; gap: var(--cds-gap-xs)">Viagem
+        <select class="mx-viagem" aria-label="Viagem" data-source="viagens"></select>
+      </label>
+      <a class="mx-btn sec" id="parar" target="_blank" rel="noopener noreferrer" href="#">Parar de monitorar</a>
+    </div>
+    <p class="mx-note" id="viagem-status" style="margin-top: var(--cds-gap-sm)"></p>
+    <details id="nova" style="margin-top: var(--cds-gap-sm)">
+      <summary style="cursor:pointer; font-weight: var(--cds-font-weight-medium)">+ Adicionar outra viagem</summary>
+      <p class="mx-note" style="margin-top: var(--cds-gap-sm)">Abre o GitHub com tudo preenchido: confira e toque em <b>Create</b> (é preciso estar logado na sua conta do GitHub). A nova viagem entra na coleta da próxima hora. Até 4 viagens são monitoradas ao mesmo tempo. A flexibilidade busca também os dias vizinhos no Google Voos; as agências são consultadas só nas datas exatas.</p>
+      <div class="mx-form">
+        <label>Ida<input type="date" class="f-ida" min="2026-01-01" max="2027-12-31"></label>
+        <label>Volta<input type="date" class="f-volta" min="2026-01-01" max="2027-12-31"></label>
+        <label>Adultos<select class="f-ad"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label>Flexibilidade<select class="f-flex"><option value="0">Datas exatas</option><option value="1">± 1 dia</option><option value="2">± 2 dias</option><option value="3">± 3 dias</option></select></label>
+        <a class="mx-btn f-ok" target="_blank" rel="noopener noreferrer" href="#">Monitorar esta viagem</a>
+      </div>
+      <p class="mx-note f-msg" style="margin-top: var(--cds-gap-sm)"></p>
+    </details>
+  </section>
 
   <div class="mx-controls" id="controles">
     <label>Horário de partida
@@ -158,20 +184,17 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
     <label>Mínimo de coletas para conclusões
       <input class="mx-minobs" type="number" min="3" max="500" step="1" aria-label="Mínimo de coletas">
     </label>
-    <label>Datas monitoradas
-      <span style="color: var(--color-fg); padding: var(--cds-pad-xs) 0;">Fixas (sem flexibilidade de ± dias)</span>
-    </label>
     <button class="mx-reset" type="button">Restaurar padrões</button>
     <button class="mx-refresh" type="button">↻ Atualizar dados</button>
     <span class="mx-refresh-msg" aria-live="polite"></span>
   </div>
 
   <section id="sites-sec">
-    <h2>Comparação entre sites (ida + volta, 2 adultos)</h2>
-    <p class="mx-note">Google Voos mostra a tarifa da GOL (soma da ida mais barata com a volta mais barata). MaxMilhas e Decolar são consultados direto no site, que vende as duas companhias, inclusive a Azul. Preço total com taxas; no MaxMilhas, o valor é no PIX.</p>
+    <h2>Comparação entre sites (ida + volta)</h2>
+    <p class="mx-note">Google Voos mostra a tarifa da GOL (ida mais barata + volta mais barata; com flexibilidade, o melhor par de datas). MaxMilhas e Decolar são consultados direto no site nas datas exatas e vendem as duas companhias, inclusive a Azul. Preço total com taxas; no MaxMilhas, o valor é no PIX.</p>
     <div class="mx-card">
       <div id="melhor-site" class="mx-alert on" style="margin-top:0" data-source="sites"><span class="dash-skeleton">—</span></div>
-      <table data-source="sites" data-row-key="vendedor" id="tab-sites">
+      <table data-source="sites" data-row-key="chave" id="tab-sites">
         <thead><tr><th data-field="vendedor">Site</th><th class="n" data-field="atual">Agora</th><th data-field="descricao">Melhor opção agora</th><th class="n" data-field="menor">Menor já visto</th><th data-field="menor_em">Quando</th><th>Passagem</th></tr></thead>
         <tbody></tbody>
       </table>
@@ -181,7 +204,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
       <p class="mx-note">As 12 combinações de ida e volta mais baratas vistas no MaxMilhas e na Decolar.</p>
       <div class="mx-tablebox">
         <table data-source="combos_atuais" data-row-key="chave" id="tab-combos">
-          <thead><tr><th data-field="vendedor">Site</th><th class="n" data-field="preco_total">Total</th><th data-field="ida">Ida 25/11</th><th data-field="volta">Volta 30/11</th><th data-field="obs">Obs.</th></tr></thead>
+          <thead><tr><th data-field="vendedor">Site</th><th class="n" data-field="preco_total">Total</th><th data-field="ida">Ida</th><th data-field="volta">Volta</th><th data-field="obs">Obs.</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -216,11 +239,11 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 
   <section id="voos">
     <h2>Melhor combinação data + horário + aeroporto + escalas</h2>
-    <p class="mx-note">Cada linha é um voo específico (mesmo horário, aeroportos e conexões). “Atual” é o preço na última coleta; vazio quando o voo não apareceu nela. Linhas esmaecidas ficam fora do filtro de horário.</p>
+    <p class="mx-note">Cada linha é um voo específico (mesma data, horário, aeroportos e conexões). “Atual” é o preço na última coleta; vazio quando o voo não apareceu nela. Linhas esmaecidas ficam fora do filtro de horário.</p>
     <div class="mx-card">
       <div id="melhor-voo" class="mx-take" style="margin-top:0" data-source="voos"></div>
       <div class="mx-tablebox">
-        <table data-source="voos" data-row-key="voo_id" id="tab-voos">
+        <table data-source="voos" data-row-key="chave" id="tab-voos">
           <thead><tr>
             <th data-field="trecho">Trecho</th><th data-field="partida">Partida</th><th data-field="chegada">Chegada</th><th data-field="rota">Aeroportos</th><th data-field="conexoes">Conexões</th><th data-field="cia">Cia</th><th class="n" data-field="duracao_min">Duração</th><th class="n" data-field="menor">Menor</th><th class="n" data-field="atual">Atual</th><th class="n" data-field="medio">Médio</th><th class="n" data-field="vezes">Vezes visto</th><th>Passagem</th>
           </tr></thead>
@@ -235,7 +258,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
     <div class="mx-grid">
       <div class="mx-card">
         <h3>Preço por faixa de horário de partida</h3>
-        <p class="mx-note">Todas as tarifas observadas, de todas as coletas (2 adultos, só um trecho).</p>
+        <p class="mx-note">Todas as tarifas observadas desta viagem, de todas as coletas (só um trecho).</p>
         <div id="conclusao-faixa" class="mx-alert" data-source="faixas resumo"></div>
         <table data-source="faixas" data-row-key="chave" id="tab-faixas">
           <thead><tr><th data-field="trecho">Trecho</th><th data-field="faixa">Faixa</th><th class="n" data-field="menor">Menor</th><th class="n" data-field="medio">Médio</th><th class="n" data-field="n_ofertas">Nº ofertas</th></tr></thead>
@@ -256,7 +279,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
     <div class="mx-grid">
       <div class="mx-card">
         <h3>Preço × data da consulta</h3>
-        <p class="mx-note">Menor preço em cada coleta: ida, volta e total ida + volta.</p>
+        <p class="mx-note">Menor preço em cada coleta: ida, volta e total ida + volta (Google Voos).</p>
         <div class="mx-legend" id="leg2"></div>
         <div class="mx-chart" id="ch-serie" data-source="serie"></div>
       </div>
@@ -287,7 +310,7 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
       <p class="mx-note" id="saude" data-source="coletas"></p>
       <div class="mx-tablebox">
         <table data-source="coletas" data-row-key="coleta_id" id="tab-coletas">
-          <thead><tr><th data-field="coletado_em">Coleta</th><th data-field="status">Google</th><th class="n" data-field="ofertas_ida">Ofertas ida</th><th class="n" data-field="ofertas_volta">Ofertas volta</th><th data-field="maxmilhas">MaxMilhas</th><th data-field="decolar">Decolar</th><th data-field="alerta">Alerta enviado</th><th data-field="erro">Observação</th></tr></thead>
+          <thead><tr><th data-field="coletado_em">Coleta</th><th data-field="status">Google</th><th class="n" data-field="ofertas_ida">Ofertas ida</th><th class="n" data-field="ofertas_volta">Ofertas volta</th><th data-field="maxmilhas">MaxMilhas</th><th data-field="decolar">Decolar</th><th class="n" data-field="viagens_ativas">Viagens</th><th data-field="alerta">Alerta enviado</th><th data-field="erro">Observação</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -296,71 +319,69 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 </div>
 
 <script>
-/* ---------- Cálculos (cada um parte só dos dados coletados) ---------- */
+/* ---------- Cálculos por viagem (cada um parte só dos dados coletados) ---------- */
 dash.calc('serie', {
-  title: 'Menor preço por coleta',
-  description: 'Para cada coleta: menor ida, menor volta e a soma das duas, com e sem o filtro 06:00–22:00.',
-  inputs: ['ofertas'],
-  fn: (ofertas) => {
+  title: 'Menor preço por coleta e viagem',
+  description: 'Para cada viagem e coleta: menor ida, menor volta (no melhor par de datas, se houver flexibilidade) e a soma, com e sem o filtro 06:00–22:00.',
+  inputs: ['ofertas', 'viagens'],
+  fn: (ofertas, viagens) => {
+    const dias = (b, f) => { const t = Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)); const s = new Set(); for (let d = -f; d <= f; d++) s.add(new Date(t + d * 864e5).toISOString().slice(0, 10)); return s; };
     const out = [];
-    for (const filtro of ['qualquer', '06-22']) {
-      const by = new Map();
-      for (const o of ofertas) {
-        const p = String(o.partida);
-        if (filtro === '06-22' && (p < '06:00' || p > '22:00')) continue;
-        const k = o.coleta_id;
-        if (!by.has(k)) by.set(k, { coletado_em: o.coletado_em, ida: null, volta: null });
-        const g = by.get(k), v = Number(o.preco_total);
-        if (o.sentido === 'ida' && (g.ida === null || v < g.ida)) g.ida = v;
-        if (o.sentido === 'volta' && (g.volta === null || v < g.volta)) g.volta = v;
+    for (const v of viagens) {
+      const f = Number(v.flex_usada ?? v.flex ?? 0), ri = dias(v.ida, f), rv = dias(v.volta, f), ad = Number(v.adultos);
+      for (const filtro of ['qualquer', '06-22']) {
+        const by = new Map();
+        for (const o of ofertas) {
+          if (Number(o.adultos ?? 2) !== ad) continue;
+          const p = String(o.partida);
+          if (filtro === '06-22' && (p < '06:00' || p > '22:00')) continue;
+          const em = o.sentido === 'ida' ? ri : rv;
+          if (!em.has(o.data_voo)) continue;
+          if (!by.has(o.coleta_id)) by.set(o.coleta_id, { coletado_em: o.coletado_em, ida: {}, volta: {} });
+          const g = by.get(o.coleta_id)[o.sentido], x = Number(o.preco_total);
+          if (g[o.data_voo] === undefined || x < g[o.data_voo]) g[o.data_voo] = x;
+        }
+        for (const [k, g] of by) {
+          let best = null;
+          for (const [a, pa] of Object.entries(g.ida)) for (const [b, pb] of Object.entries(g.volta)) if (b > a && (!best || pa + pb < best.t)) best = { t: pa + pb, a, b, pa, pb };
+          const mi = Object.values(g.ida), mv = Object.values(g.volta);
+          out.push({ chave: v.id + '|' + filtro + '|' + k, viagem: v.id, filtro, coleta_id: k, coletado_em: g.coletado_em,
+            min_ida: best ? best.pa : (mi.length ? Math.min(...mi) : null), min_volta: best ? best.pb : (mv.length ? Math.min(...mv) : null),
+            min_total: best ? best.t : null, data_ida: best ? best.a : null, data_volta: best ? best.b : null });
+        }
       }
-      for (const [k, g] of by) out.push({
-        chave: filtro + '|' + k, filtro, coleta_id: k, coletado_em: g.coletado_em,
-        min_ida: g.ida, min_volta: g.volta,
-        min_total: g.ida !== null && g.volta !== null ? g.ida + g.volta : null,
-      });
     }
     return out.sort((a, b) => new Date(a.coletado_em) - new Date(b.coletado_em));
   },
 });
 
 dash.calc('resumo', {
-  title: 'Resumo por trecho',
-  description: 'Menor, segundo menor, médio, maior e atual (última coleta) por trecho; recorde comparado às coletas anteriores.',
-  inputs: ['serie', 'ofertas'],
-  fn: (serie, ofertas) => {
+  title: 'Resumo por viagem e trecho',
+  description: 'Menor, segundo menor, médio, maior e atual (última coleta) da ida, da volta e do total; recorde comparado às coletas anteriores.',
+  inputs: ['serie', 'ofertas', 'viagens'],
+  fn: (serie, ofertas, viagens) => {
     const out = [];
-    const descr = (o) => o ? `${o.partida} ${o.origem}→${o.destino} · ${o.escalas} ${Number(o.escalas) === 1 ? 'conexão' : 'conexões'}${o.conexoes ? ' (' + String(o.conexoes).replace(/,/g, ', ') + ')' : ''} · ${o.cia}` : '';
-    for (const filtro of ['qualquer', '06-22']) {
-      const rows = serie.filter((r) => r.filtro === filtro);
+    const descr = (o) => o ? `${String(o.data_voo).slice(8, 10)}/${String(o.data_voo).slice(5, 7)} ${o.partida} ${o.origem}→${o.destino} · ${o.escalas} ${Number(o.escalas) === 1 ? 'conexão' : 'conexões'}${o.conexoes ? ' (' + String(o.conexoes).replace(/,/g, ', ') + ')' : ''} · ${o.cia}` : '';
+    for (const v of viagens) for (const filtro of ['qualquer', '06-22']) {
+      const rows = serie.filter((r) => r.viagem === v.id && r.filtro === filtro);
+      const ok = (o) => filtro === 'qualquer' || (String(o.partida) >= '06:00' && String(o.partida) <= '22:00');
+      const pick = (sent, id, val, dia) => ofertas.find((o) => o.coleta_id === id && o.sentido === sent && Number(o.preco_total) === val && Number(o.adultos ?? 2) === Number(v.adultos) && (!dia || o.data_voo === dia) && ok(o));
       for (const seg of ['ida', 'volta', 'total']) {
-        const pts = rows.filter((r) => r['min_' + seg] !== null).map((r) => ({ v: Number(r['min_' + seg]), em: r.coletado_em, id: r.coleta_id }));
-        if (!pts.length) { out.push({ chave: filtro + '|' + seg, filtro, segmento: seg, n_coletas: 0 }); continue; }
+        const pts = rows.filter((r) => r['min_' + seg] !== null).map((r) => ({ v: Number(r['min_' + seg]), em: r.coletado_em, id: r.coleta_id, r }));
+        const chave = v.id + '|' + filtro + '|' + seg;
+        if (!pts.length) { out.push({ chave, viagem: v.id, filtro, segmento: seg, n_coletas: 0 }); continue; }
         const vals = pts.map((p) => p.v);
-        const menor = Math.min(...vals), maior = Math.max(...vals);
-        const medio = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const menor = Math.min(...vals), maior = Math.max(...vals), medio = vals.reduce((a, b) => a + b, 0) / vals.length;
         const distintos = [...new Set(vals)].sort((a, b) => a - b);
         const first = pts.find((p) => p.v === menor), last = pts[pts.length - 1];
-        const ant = pts.slice(0, -1).map((p) => p.v);
-        const menorAnt = ant.length ? Math.min(...ant) : null;
-        const ok = (o) => filtro === 'qualquer' || (String(o.partida) >= '06:00' && String(o.partida) <= '22:00');
-        const pick = (sent, id, v) => ofertas.find((o) => o.coleta_id === id && o.sentido === sent && Number(o.preco_total) === v && ok(o));
-        let voo = '';
-        if (seg === 'total') {
-          const r = rows.find((x) => x.coleta_id === first.id);
-          voo = 'Ida ' + descr(pick('ida', first.id, Number(r.min_ida))) + ' + Volta ' + descr(pick('volta', first.id, Number(r.min_volta)));
-        } else voo = descr(pick(seg, first.id, menor));
-        out.push({
-          chave: filtro + '|' + seg, filtro, segmento: seg, n_coletas: pts.length,
-          menor, menor_em: first.em, menor_voo: voo,
-          segundo_menor: distintos.length > 1 ? distintos[1] : null,
-          medio: Math.round(medio), maior, atual: last.v, atual_em: last.em,
-          variacao_pct: Math.round((last.v - menor) / menor * 1000) / 10,
-          dif_media_pct: Math.round((last.v - medio) / medio * 1000) / 10,
-          menor_anterior: menorAnt,
-          novo_recorde: menorAnt !== null && last.v < menorAnt,
-          economia: menorAnt !== null && last.v < menorAnt ? menorAnt - last.v : 0,
-        });
+        const ant = pts.slice(0, -1).map((p) => p.v), menorAnt = ant.length ? Math.min(...ant) : null;
+        const r = first.r;
+        const voo = seg === 'total' ? 'Ida ' + descr(pick('ida', r.coleta_id, Number(r.min_ida), r.data_ida)) + ' + Volta ' + descr(pick('volta', r.coleta_id, Number(r.min_volta), r.data_volta))
+          : descr(pick(seg, first.id, menor, seg === 'ida' ? r.data_ida : r.data_volta));
+        out.push({ chave, viagem: v.id, filtro, segmento: seg, n_coletas: pts.length, menor, menor_em: first.em, menor_voo: voo,
+          segundo_menor: distintos.length > 1 ? distintos[1] : null, medio: Math.round(medio), maior, atual: last.v, atual_em: last.em,
+          variacao_pct: Math.round((last.v - menor) / menor * 1000) / 10, dif_media_pct: Math.round((last.v - medio) / medio * 1000) / 10,
+          menor_anterior: menorAnt, novo_recorde: menorAnt !== null && last.v < menorAnt, economia: menorAnt !== null && last.v < menorAnt ? menorAnt - last.v : 0 });
       }
     }
     return out;
@@ -369,65 +390,75 @@ dash.calc('resumo', {
 
 dash.calc('voos', {
   title: 'Preço por voo específico',
-  description: 'Agrupa as tarifas pelo mesmo voo (trecho, horário, aeroportos e conexões): menor, médio, atual e quantas vezes apareceu.',
-  inputs: ['ofertas'],
-  fn: (ofertas) => {
-    const ultima = ofertas.reduce((m, o) => (!m || new Date(o.coletado_em) > new Date(m) ? o.coletado_em : m), null);
-    const by = new Map();
-    for (const o of ofertas) {
-      if (!by.has(o.voo_id)) by.set(o.voo_id, { o, vals: [], atual: null, visto: o.coletado_em });
-      const g = by.get(o.voo_id), v = Number(o.preco_total);
-      g.vals.push(v);
-      if (o.coletado_em === ultima) g.atual = g.atual === null ? v : Math.min(g.atual, v);
-      if (new Date(o.coletado_em) > new Date(g.visto)) g.visto = o.coletado_em;
+  description: 'Para cada viagem, agrupa as tarifas pelo mesmo voo (trecho, data, horário, aeroportos e conexões): menor, médio, atual e quantas vezes apareceu.',
+  inputs: ['ofertas', 'viagens'],
+  fn: (ofertas, viagens) => {
+    const dias = (b, f) => { const t = Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)); const s = new Set(); for (let d = -f; d <= f; d++) s.add(new Date(t + d * 864e5).toISOString().slice(0, 10)); return s; };
+    const out = [];
+    for (const v of viagens) {
+      const f = Number(v.flex_usada ?? v.flex ?? 0), ri = dias(v.ida, f), rv = dias(v.volta, f), ad = Number(v.adultos);
+      const meus = ofertas.filter((o) => Number(o.adultos ?? 2) === ad && (o.sentido === 'ida' ? ri : rv).has(o.data_voo));
+      const ultima = meus.reduce((m, o) => (!m || new Date(o.coletado_em) > new Date(m) ? o.coletado_em : m), null);
+      const by = new Map();
+      for (const o of meus) {
+        const k = [o.sentido, o.data_voo, o.partida, o.origem, o.destino, o.conexoes].join('|');
+        if (!by.has(k)) by.set(k, { o, vals: [], atual: null });
+        const g = by.get(k), x = Number(o.preco_total);
+        g.vals.push(x);
+        if (o.coletado_em === ultima) g.atual = g.atual === null ? x : Math.min(g.atual, x);
+      }
+      for (const [k, g] of by) out.push({ chave: v.id + '|' + k, viagem: v.id, sentido: g.o.sentido, data_voo: g.o.data_voo,
+        trecho: (g.o.sentido === 'ida' ? 'Ida ' : 'Volta ') + String(g.o.data_voo).slice(8, 10) + '/' + String(g.o.data_voo).slice(5, 7),
+        partida: g.o.partida, chegada: g.o.chegada + (Number(g.o.chegada_mais_dias) ? ' +' + g.o.chegada_mais_dias : ''),
+        rota: g.o.origem + '→' + g.o.destino, conexoes: String(g.o.conexoes || '').replace(/,/g, ', '), escalas: Number(g.o.escalas), cia: g.o.cia,
+        duracao_min: Number(g.o.duracao_min), menor: Math.min(...g.vals), atual: g.atual,
+        medio: Math.round(g.vals.reduce((a, b) => a + b, 0) / g.vals.length), vezes: g.vals.length,
+        no_filtro: String(g.o.partida) >= '06:00' && String(g.o.partida) <= '22:00' });
     }
-    return [...by].map(([id, g]) => ({
-      voo_id: id, sentido: g.o.sentido, trecho: (g.o.sentido === 'ida' ? 'Ida ' : 'Volta ') + String(g.o.data_voo).slice(8, 10) + '/' + String(g.o.data_voo).slice(5, 7),
-      partida: g.o.partida, chegada: g.o.chegada + (Number(g.o.chegada_mais_dias) ? ' +' + g.o.chegada_mais_dias : ''),
-      rota: g.o.origem + '→' + g.o.destino, conexoes: String(g.o.conexoes || '').replace(/,/g, ', '), escalas: Number(g.o.escalas), cia: g.o.cia,
-      duracao_min: Number(g.o.duracao_min), menor: Math.min(...g.vals), atual: g.atual,
-      medio: Math.round(g.vals.reduce((a, b) => a + b, 0) / g.vals.length), vezes: g.vals.length, visto_ultimo: g.visto,
-      no_filtro: String(g.o.partida) >= '06:00' && String(g.o.partida) <= '22:00',
-    })).sort((a, b) => a.sentido.localeCompare(b.sentido) || a.menor - b.menor || a.duracao_min - b.duracao_min);
+    return out.sort((a, b) => a.viagem.localeCompare(b.viagem) || a.sentido.localeCompare(b.sentido) || a.menor - b.menor || a.duracao_min - b.duracao_min);
   },
 });
 
 dash.calc('faixas', {
   title: 'Preço por faixa de horário',
-  description: 'Menor e médio preço de todas as tarifas vistas, por faixa de horário de partida (00–06, 06–12, 12–18, 18–24).',
-  inputs: ['ofertas'],
-  fn: (ofertas) => {
+  description: 'Menor e médio preço de todas as tarifas da viagem, por faixa de horário de partida (00–06, 06–12, 12–18, 18–24).',
+  inputs: ['ofertas', 'viagens'],
+  fn: (ofertas, viagens) => {
+    const dias = (b, f) => { const t = Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)); const s = new Set(); for (let d = -f; d <= f; d++) s.add(new Date(t + d * 864e5).toISOString().slice(0, 10)); return s; };
     const faixas = ['00:00–05:59', '06:00–11:59', '12:00–17:59', '18:00–23:59'];
     const out = [];
-    for (const sent of ['ida', 'volta']) faixas.forEach((f, i) => {
-      const vals = ofertas.filter((o) => o.sentido === sent && Math.floor(Number(String(o.partida).slice(0, 2)) / 6) === i).map((o) => Number(o.preco_total));
-      out.push({ chave: sent + '|' + i, sentido: sent, trecho: sent === 'ida' ? 'Ida' : 'Volta', faixa: f,
-        menor: vals.length ? Math.min(...vals) : null,
-        medio: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null,
-        n_ofertas: vals.length });
-    });
+    for (const v of viagens) {
+      const f = Number(v.flex_usada ?? v.flex ?? 0), ri = dias(v.ida, f), rv = dias(v.volta, f), ad = Number(v.adultos);
+      for (const sent of ['ida', 'volta']) faixas.forEach((fx, i) => {
+        const vals = ofertas.filter((o) => o.sentido === sent && Number(o.adultos ?? 2) === ad && (sent === 'ida' ? ri : rv).has(o.data_voo) && Math.floor(Number(String(o.partida).slice(0, 2)) / 6) === i).map((o) => Number(o.preco_total));
+        out.push({ chave: v.id + '|' + sent + '|' + i, viagem: v.id, sentido: sent, trecho: sent === 'ida' ? 'Ida' : 'Volta', faixa: fx,
+          menor: vals.length ? Math.min(...vals) : null, medio: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null, n_ofertas: vals.length });
+      });
+    }
     return out;
   },
 });
 
 dash.calc('momento', {
   title: 'Preço por momento da consulta',
-  description: 'Total ida + volta de cada coleta, agrupado pela hora da consulta e pelos dias que faltavam para a ida (25/11/2026).',
-  inputs: ['serie'],
-  fn: (serie) => {
+  description: 'Total ida + volta de cada coleta, agrupado pela hora da consulta e pelos dias que faltavam para a ida da viagem.',
+  inputs: ['serie', 'viagens'],
+  fn: (serie, viagens) => {
     const horas = ['00:00–05:59', '06:00–11:59', '12:00–17:59', '18:00–23:59'];
-    const ante = [['Mais de 30 dias', 31, 999], ['22 a 30 dias', 22, 30], ['15 a 21 dias', 15, 21], ['8 a 14 dias', 8, 14], ['Até 7 dias', 0, 7]];
-    const ida = Date.UTC(2026, 10, 25);
+    const ante = [['Mais de 30 dias', 31, 9999], ['22 a 30 dias', 22, 30], ['15 a 21 dias', 15, 21], ['8 a 14 dias', 8, 14], ['Até 7 dias', 0, 7]];
     const out = [];
-    for (const filtro of ['qualquer', '06-22']) {
-      const rows = serie.filter((r) => r.filtro === filtro && r.min_total !== null);
-      const push = (tipo, grupo, ordem, vals) => out.push({ chave: filtro + '|' + tipo + '|' + ordem, filtro, tipo, grupo, ordem,
-        menor: vals.length ? Math.min(...vals) : null, medio: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null, n: vals.length });
-      horas.forEach((h, i) => push('Hora da consulta', h, i, rows.filter((r) => Math.floor(Number(String(r.coletado_em).slice(11, 13)) / 6) === i).map((r) => Number(r.min_total))));
-      ante.forEach(([g, a, b], i) => push('Antecedência', g, i, rows.filter((r) => {
-        const d = Math.round((ida - Date.UTC(+String(r.coletado_em).slice(0, 4), +String(r.coletado_em).slice(5, 7) - 1, +String(r.coletado_em).slice(8, 10))) / 864e5);
-        return d >= a && d <= b;
-      }).map((r) => Number(r.min_total))));
+    for (const v of viagens) {
+      const ida = Date.UTC(+v.ida.slice(0, 4), +v.ida.slice(5, 7) - 1, +v.ida.slice(8, 10));
+      for (const filtro of ['qualquer', '06-22']) {
+        const rows = serie.filter((r) => r.viagem === v.id && r.filtro === filtro && r.min_total !== null);
+        const push = (tipo, grupo, ordem, vals) => out.push({ chave: v.id + '|' + filtro + '|' + tipo + '|' + ordem, viagem: v.id, filtro, tipo, grupo, ordem,
+          menor: vals.length ? Math.min(...vals) : null, medio: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null, n: vals.length });
+        horas.forEach((h, i) => push('Hora da consulta', h, i, rows.filter((r) => Math.floor(Number(String(r.coletado_em).slice(11, 13)) / 6) === i).map((r) => Number(r.min_total))));
+        ante.forEach(([g, a, b], i) => push('Antecedência', g, i, rows.filter((r) => {
+          const s = String(r.coletado_em), d = Math.round((ida - Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10))) / 864e5);
+          return d >= a && d <= b;
+        }).map((r) => Number(r.min_total))));
+      }
     }
     return out;
   },
@@ -435,18 +466,18 @@ dash.calc('momento', {
 
 dash.calc('oportunidade', {
   title: 'Índice de oportunidade',
-  description: 'Pontua o total atual: distância do menor histórico (40), da média (30), do maior (10), tamanho do histórico (10) e proximidade da viagem (10). Disponibilidade de assentos não vem da fonte.',
-  inputs: ['resumo'],
-  fn: (resumo) => {
+  description: 'Pontua o total atual de cada viagem: distância do menor histórico (40), da média (30), do maior (10), tamanho do histórico (10) e proximidade da viagem (10). Disponibilidade de assentos não vem da fonte.',
+  inputs: ['resumo', 'viagens'],
+  fn: (resumo, viagens) => {
     const out = [];
     const clamp = (x) => Math.max(0, Math.min(1, x));
     const pct = (x) => (x > 0 ? '+' : '') + (Math.round(x * 1000) / 10).toFixed(1).replace('.', ',') + '%';
-    for (const filtro of ['qualquer', '06-22']) {
-      const r = resumo.find((x) => x.chave === filtro + '|total');
+    for (const v of viagens) for (const filtro of ['qualquer', '06-22']) {
+      const r = resumo.find((x) => x.chave === v.id + '|' + filtro + '|total');
       if (!r || !r.n_coletas) continue;
       const dMin = (r.atual - r.menor) / r.menor, dMed = (r.medio - r.atual) / r.medio, dMax = (r.maior - r.atual) / r.maior;
       const em = String(r.atual_em);
-      const dias = Math.round((Date.UTC(2026, 10, 25) - Date.UTC(+em.slice(0, 4), +em.slice(5, 7) - 1, +em.slice(8, 10))) / 864e5);
+      const dias = Math.round((Date.UTC(+v.ida.slice(0, 4), +v.ida.slice(5, 7) - 1, +v.ida.slice(8, 10)) - Date.UTC(+em.slice(0, 4), +em.slice(5, 7) - 1, +em.slice(8, 10))) / 864e5);
       const f = [
         ['Distância do menor histórico', pct(dMin) + ' vs menor', 40 * clamp(1 - dMin / 0.25), 40],
         ['Distância da média', pct(-dMed) + ' vs média', 30 * clamp((dMed + 0.10) / 0.30), 30],
@@ -456,8 +487,8 @@ dash.calc('oportunidade', {
         ['Disponibilidade de assentos', 'Não informada pela fonte', 0, 0],
       ];
       let tot = 0;
-      f.forEach(([fator, detalhe, p, max], i) => { const pts = Math.round(p); tot += pts; out.push({ chave: filtro + '|' + i, filtro, fator, detalhe, pontos: pts, max }); });
-      out.push({ chave: filtro + '|total', filtro, fator: 'Total', detalhe: '', pontos: tot, max: 100 });
+      f.forEach(([fator, detalhe, p, max], i) => { const pts = Math.round(p); tot += pts; out.push({ chave: v.id + '|' + filtro + '|' + i, viagem: v.id, filtro, fator, detalhe, pontos: pts, max }); });
+      out.push({ chave: v.id + '|' + filtro + '|total', viagem: v.id, filtro, fator: 'Total', detalhe: '', pontos: tot, max: 100 });
     }
     return out;
   },
@@ -465,87 +496,144 @@ dash.calc('oportunidade', {
 
 dash.calc('sites', {
   title: 'Preço por site',
-  description: 'Menor ida + volta de cada site na última coleta em que ele respondeu e o menor já visto. Google Voos = ida mais barata + volta mais barata (GOL).',
-  inputs: ['serie', 'combos', 'ofertas'],
-  fn: (serie, combos, ofertas) => {
+  description: 'Para cada viagem: menor ida + volta de cada site na última coleta em que ele respondeu e o menor já visto. Google Voos = melhor ida + melhor volta (GOL).',
+  inputs: ['serie', 'combos', 'ofertas', 'viagens'],
+  fn: (serie, combos, ofertas, viagens) => {
+    const dd = (d) => String(d).slice(8, 10) + '/' + String(d).slice(5, 7);
     const lado = (cia, o, p, c, d) => `${cia} ${o} ${p}→${c}${Number(d) ? ' (+1 dia)' : ''}`;
-    const pts = [];
-    for (const r of serie) if (r.filtro === 'qualquer' && r.min_total !== null) {
-      const i = ofertas.filter((o) => o.coleta_id === r.coleta_id && o.sentido === 'ida' && Number(o.preco_total) === Number(r.min_ida))[0];
-      const v = ofertas.filter((o) => o.coleta_id === r.coleta_id && o.sentido === 'volta' && Number(o.preco_total) === Number(r.min_volta))[0];
-      pts.push({ vendedor: 'Google Voos (GOL)', em: r.coletado_em, preco: Number(r.min_total), descricao: i && v ? 'Ida ' + lado(i.cia, i.origem, i.partida, i.chegada, i.chegada_mais_dias) + ' · Volta ' + lado(v.cia, 'CKS', v.partida, v.chegada, v.chegada_mais_dias) : '', obs: '' });
-    }
-    for (const c of combos) pts.push({ vendedor: c.vendedor, em: c.coletado_em, preco: Number(c.preco_total),
-      descricao: 'Ida ' + lado(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias) + ' · Volta ' + lado(c.volta_cia, 'CKS', c.volta_partida, c.volta_chegada, c.volta_mais_dias), obs: c.obs || '' });
     const out = [];
-    for (const vend of [...new Set(pts.map((p) => p.vendedor))]) {
-      const ps = pts.filter((p) => p.vendedor === vend);
-      const ult = ps.reduce((m, p) => (new Date(p.em) > new Date(m) ? p.em : m), ps[0].em);
-      const agora = ps.filter((p) => p.em === ult).sort((a, b) => a.preco - b.preco)[0];
-      const rec = [...ps].sort((a, b) => a.preco - b.preco || new Date(a.em) - new Date(b.em))[0];
-      out.push({ vendedor: vend, atual: agora.preco, atual_em: ult, descricao: agora.descricao, obs: agora.obs, menor: rec.preco, menor_em: rec.em });
+    for (const v of viagens) {
+      const pts = [];
+      for (const r of serie) if (r.viagem === v.id && r.filtro === 'qualquer' && r.min_total !== null) {
+        const i = ofertas.find((o) => o.coleta_id === r.coleta_id && o.sentido === 'ida' && o.data_voo === r.data_ida && Number(o.adultos ?? 2) === Number(v.adultos) && Number(o.preco_total) === Number(r.min_ida));
+        const w = ofertas.find((o) => o.coleta_id === r.coleta_id && o.sentido === 'volta' && o.data_voo === r.data_volta && Number(o.adultos ?? 2) === Number(v.adultos) && Number(o.preco_total) === Number(r.min_volta));
+        pts.push({ vendedor: 'Google Voos (GOL)', em: r.coletado_em, preco: Number(r.min_total), obs: '',
+          descricao: i && w ? 'Ida ' + dd(r.data_ida) + ' ' + lado(i.cia, i.origem, i.partida, i.chegada, i.chegada_mais_dias) + ' · Volta ' + dd(r.data_volta) + ' ' + lado(w.cia, 'CKS', w.partida, w.chegada, w.chegada_mais_dias) : '' });
+      }
+      for (const c of combos) if ((c.data_ida ?? '2026-11-25') === v.ida && (c.data_volta ?? '2026-11-30') === v.volta && Number(c.adultos ?? 2) === Number(v.adultos))
+        pts.push({ vendedor: c.vendedor, em: c.coletado_em, preco: Number(c.preco_total), obs: c.obs || '',
+          descricao: 'Ida ' + lado(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias) + ' · Volta ' + lado(c.volta_cia, 'CKS', c.volta_partida, c.volta_chegada, c.volta_mais_dias) });
+      for (const vend of [...new Set(pts.map((p) => p.vendedor))]) {
+        const ps = pts.filter((p) => p.vendedor === vend);
+        const ult = ps.reduce((m, p) => (new Date(p.em) > new Date(m) ? p.em : m), ps[0].em);
+        const agora = ps.filter((p) => p.em === ult).sort((a, b) => a.preco - b.preco)[0];
+        const rec = [...ps].sort((a, b) => a.preco - b.preco || new Date(a.em) - new Date(b.em))[0];
+        out.push({ chave: v.id + '|' + vend, viagem: v.id, vendedor: vend, atual: agora.preco, atual_em: ult, descricao: agora.descricao, obs: agora.obs, menor: rec.preco, menor_em: rec.em });
+      }
     }
-    return out.sort((a, b) => a.atual - b.atual);
+    return out.sort((a, b) => a.viagem.localeCompare(b.viagem) || a.atual - b.atual);
   },
 });
 
 dash.calc('combos_atuais', {
   title: 'Opções das agências agora',
-  description: 'As 12 combinações mais baratas de MaxMilhas e Decolar na última coleta de cada site.',
-  inputs: ['combos'],
-  fn: (combos) => {
-    const ult = {};
-    for (const c of combos) if (!ult[c.vendedor] || new Date(c.coletado_em) > new Date(ult[c.vendedor])) ult[c.vendedor] = c.coletado_em;
+  description: 'Para cada viagem, as 12 combinações mais baratas de MaxMilhas e Decolar na última coleta de cada site.',
+  inputs: ['combos', 'viagens'],
+  fn: (combos, viagens) => {
     const lado = (cia, o, p, c, d, dur) => `${cia} · ${o} ${p} → ${c}${Number(d) ? ' (+1 dia)' : ''} · ${Math.floor(dur / 60)}h${dur % 60 ? String(dur % 60).padStart(2, '0') : ''}`;
-    return combos.filter((c) => c.coletado_em === ult[c.vendedor]).sort((a, b) => a.preco_total - b.preco_total).slice(0, 12).map((c) => ({
-      chave: c.vendedor + '|' + c.combo_id + '|' + c.preco_total, vendedor: c.vendedor, preco_total: Number(c.preco_total),
-      ida: lado(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias, Number(c.ida_duracao_min)),
-      volta: lado(c.volta_cia, 'CKS', c.volta_partida, c.volta_chegada, c.volta_mais_dias, Number(c.volta_duracao_min)), obs: c.obs || '' }));
+    const out = [];
+    for (const v of viagens) {
+      const meus = combos.filter((c) => (c.data_ida ?? '2026-11-25') === v.ida && (c.data_volta ?? '2026-11-30') === v.volta && Number(c.adultos ?? 2) === Number(v.adultos));
+      const ult = {};
+      for (const c of meus) if (!ult[c.vendedor] || new Date(c.coletado_em) > new Date(ult[c.vendedor])) ult[c.vendedor] = c.coletado_em;
+      meus.filter((c) => c.coletado_em === ult[c.vendedor]).sort((a, b) => a.preco_total - b.preco_total).slice(0, 12).forEach((c, i) => out.push({
+        chave: v.id + '|' + i, viagem: v.id, vendedor: c.vendedor, preco_total: Number(c.preco_total),
+        ida: lado(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias, Number(c.ida_duracao_min)),
+        volta: lado(c.volta_cia, 'CKS', c.volta_partida, c.volta_chegada, c.volta_mais_dias, Number(c.volta_duracao_min)), obs: c.obs || '' }));
+    }
+    return out;
   },
 });
 </script>
 
 <script>
 /* ---------- Desenho ---------- */
+const GH = 'https://github.com/tecnicoleandro1992-create/monitor-carajas';
 const DEF = { filtro: 'qualquer', min_obs: 24 };
 const fBRL = (v) => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.round(Number(v)).toLocaleString('pt-BR');
 const fPct = (v) => (v === null || v === undefined || isNaN(v)) ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(1).replace('.', ',') + '%';
 const fDT = (s) => s ? String(s).slice(8, 10) + '/' + String(s).slice(5, 7) + ' às ' + String(s).slice(11, 16) : '—';
+const fD = (s) => String(s).slice(8, 10) + '/' + String(s).slice(5, 7);
+const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const fDS = (s) => SEM[new Date(s + 'T12:00:00Z').getUTCDay()] + ' ' + fD(s);
 const fDur = (m) => { m = Number(m); return Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''); };
-const params = () => ({ filtro: dash.params().filtro || DEF.filtro, min_obs: Math.max(3, Number(dash.params().min_obs) || DEF.min_obs) });
 const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 const failed = (ids) => ids.some((id) => dash.data(id).status === 'error');
-const ready = (ids) => ids.every((id) => dash.data(id).status === 'ok');
 const insuf = 'Ainda não há dados suficientes para determinar o horário ou período mais barato.';
-const URL_GOOGLE = 'https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTExLTI1agwIAhIIL20vMDZnbXJyBwgBEgNDS1MaIxIKMjAyNi0xMS0zMGoHCAESA0NLU3IMCAISCC9tLzA2Z21yQAFAAUgBcAGCAQsI____________AZgBAQ&hl=pt-BR&gl=BR&curr=BRL';
-const urlGol = (rio) => 'https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=' + (rio === 'SDU' ? 'SDU' : 'GIG') + '&para=CKS&ida=25-11-2026&volta=30-11-2026&ADT=2&CHD=0&INF=0';
 const link = (href, txt) => { const a = el('a', 'mx-link', txt); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; };
-const linkVoo = (r) => {
-  const rio = r.sentido === 'ida' ? String(r.rota || r.origem || '').slice(0, 3) : String(r.rota || r.destino || '').slice(-3);
-  return /gol/i.test(String(r.cia)) ? link(urlGol(rio), 'Ver na GOL') : link(URL_GOOGLE, 'Ver no Google Voos');
-};
-const linksPassagem = (rio) => { const p = el('div', 'mx-links'); p.append('Ver passagem:', link(urlGol(rio), 'GOL'), link(URL_GOOGLE, 'Google Voos')); return p; };
 
-const selF = document.querySelector('.mx-filtro');
-const inpM = document.querySelector('.mx-minobs');
+const viagensAll = () => { const V = dash.data('viagens'); return V.status === 'ok' ? V.data : []; };
+const nomeViagem = (v) => `${fDS(v.ida)} → ${fDS(v.volta)} · ${v.adultos} adulto${Number(v.adultos) > 1 ? 's' : ''}${Number(v.flex) ? ' · ±' + v.flex + ' dia' + (Number(v.flex) > 1 ? 's' : '') : ''}`;
+const STATUS = { ativa: 'monitorando', fila: 'na fila (limite de 4)', encerrada: 'encerrada' };
+const params = () => {
+  const vs = viagensAll(); const pv = dash.params().viagem;
+  const v = vs.find((x) => x.id === pv) || vs.find((x) => x.status === 'ativa') || vs[0] || null;
+  return { filtro: dash.params().filtro || DEF.filtro, min_obs: Math.max(3, Number(dash.params().min_obs) || DEF.min_obs), v, vid: v ? v.id : '' };
+};
+const urls = (v, rio) => {
+  const br = (d) => d.slice(8, 10) + '-' + d.slice(5, 7) + '-' + d.slice(0, 4);
+  return {
+    gol: `https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=${rio === 'SDU' ? 'SDU' : 'GIG'}&para=CKS&ida=${br(v.ida)}&volta=${br(v.volta)}&ADT=${v.adultos}&CHD=0&INF=0`,
+    MaxMilhas: `https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/${v.ida}/${v.volta}/${v.adultos}/0/0/EC`,
+    Decolar: `https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/${v.ida}/${v.volta}/${v.adultos}/0/0`,
+    google: 'https://www.google.com/travel/flights?hl=pt-BR&gl=BR&curr=BRL&q=' + encodeURIComponent(`Flights to CKS from RIO on ${v.ida} through ${v.volta}`),
+  };
+};
+const linkSite = (v, vend) => { const u = urls(v); return vend === 'MaxMilhas' || vend === 'Decolar' ? link(u[vend], 'Ver no ' + vend) : link(u.gol, 'Ver na GOL'); };
+
+/* controles */
+const selF = document.querySelector('.mx-filtro'), inpM = document.querySelector('.mx-minobs'), selV = document.querySelector('.mx-viagem');
 selF.addEventListener('change', () => dash.setParams({ filtro: selF.value }));
+selV.addEventListener('change', () => dash.setParams({ viagem: selV.value }));
 inpM.addEventListener('change', () => { const v = Number(inpM.value); if (inpM.validity.valid && v >= 3) dash.setParams({ min_obs: v }); });
 inpM.addEventListener('blur', () => { inpM.value = params().min_obs; });
-document.querySelector('.mx-reset').addEventListener('click', () => dash.resetParams());
+document.querySelector('.mx-reset').addEventListener('click', () => { const v = dash.params().viagem; dash.resetParams(); if (v) dash.setParams({ viagem: v }); });
 const btnR = document.querySelector('.mx-refresh'), msgR = document.querySelector('.mx-refresh-msg');
 let pedidoR = false;
-btnR.addEventListener('click', () => {
-  pedidoR = true; btnR.disabled = true; msgR.textContent = 'Buscando a última coleta…';
-  dash.refresh('ofertas'); dash.refresh('coletas'); dash.refresh('combos');
-});
+btnR.addEventListener('click', () => { pedidoR = true; btnR.disabled = true; msgR.textContent = 'Buscando a última coleta…'; ['ofertas', 'coletas', 'combos', 'viagens'].forEach((d) => dash.refresh(d)); });
 const fimRefresh = () => {
   if (!pedidoR) return;
-  const a = dash.data('ofertas'), b = dash.data('coletas');
-  if (a.refreshing || b.refreshing || a.status === 'loading' || b.status === 'loading') return;
+  const ds = ['ofertas', 'coletas', 'combos', 'viagens'].map((d) => dash.data(d));
+  if (ds.some((d) => d.refreshing || d.status === 'loading')) return;
   pedidoR = false; btnR.disabled = false;
-  const h = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  msgR.textContent = (a.status === 'ok' && b.status === 'ok') ? 'Atualizado às ' + h + '.' : 'Não foi possível atualizar agora.';
+  msgR.textContent = ds.every((d) => d.status === 'ok') ? 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '.' : 'Não foi possível atualizar agora.';
 };
+
+/* formulário de nova viagem: abre uma issue no GitHub já preenchida */
+const fIda = document.querySelector('.f-ida'), fVol = document.querySelector('.f-volta'), fAd = document.querySelector('.f-ad'), fFx = document.querySelector('.f-flex'), fOk = document.querySelector('.f-ok'), fMsg = document.querySelector('.f-msg');
+const hojeISO = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+fIda.min = hojeISO; fVol.min = hojeISO;
+const atualizaForm = () => {
+  const ida = fIda.value, vol = fVol.value, ad = fAd.value, fx = fFx.value;
+  let erro = '';
+  if (!ida || !vol) erro = 'Escolha as datas de ida e volta.';
+  else if (ida < hojeISO) erro = 'A ida precisa ser hoje ou depois.';
+  else if (vol <= ida) erro = 'A volta precisa ser depois da ida.';
+  const ativas = viagensAll().filter((x) => x.status === 'ativa').length;
+  if (erro) { fOk.removeAttribute('href'); fOk.style.opacity = .5; fMsg.textContent = erro; return; }
+  const t = `Monitorar: ${fD(ida)}/${ida.slice(0, 4)} → ${fD(vol)}/${vol.slice(0, 4)} · ${ad} adulto${ad > 1 ? 's' : ''} · ±${fx} dias`;
+  const b = `ida: ${ida}\nvolta: ${vol}\nadultos: ${ad}\nflexibilidade: ${fx}\n\nEnquanto esta issue estiver aberta, a coleta horária monitora esta viagem. Feche a issue para parar.`;
+  fOk.href = `${GH}/issues/new?title=${encodeURIComponent(t)}&body=${encodeURIComponent(b)}`; fOk.style.opacity = 1;
+  fMsg.textContent = `${fDS(ida)} → ${fDS(vol)}, ${ad} adulto${ad > 1 ? 's' : ''}${fx > 0 ? ', ±' + fx + ' dia(s)' : ''}.` + (ativas >= 4 ? ' Já há 4 viagens ativas: esta ficará na fila até você parar alguma.' : '');
+};
+[fIda, fVol, fAd, fFx].forEach((e) => e.addEventListener('change', atualizaForm));
+fIda.addEventListener('change', () => { if (!fVol.value || fVol.value <= fIda.value) { const d = new Date(fIda.value + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 5); fVol.value = d.toISOString().slice(0, 10); atualizaForm(); } });
+atualizaForm();
+
+function drawViagem(p) {
+  const vs = viagensAll();
+  selV.replaceChildren(...vs.map((v) => new Option(nomeViagem(v) + ' — ' + (STATUS[v.status] || v.status), v.id)));
+  selV.value = p.vid;
+  const st = document.getElementById('viagem-status'), parar = document.getElementById('parar'), sub = document.getElementById('sub-viagem'), lt = document.getElementById('links-topo');
+  if (!p.v) { st.textContent = dash.data('viagens').status === 'ok' ? 'Nenhuma viagem cadastrada ainda. Use “Adicionar outra viagem”.' : ''; parar.hidden = true; sub.textContent = '—'; lt.replaceChildren(); return; }
+  const v = p.v;
+  sub.textContent = `Ida ${fDS(v.ida)}/${v.ida.slice(0, 4)} · Volta ${fDS(v.volta)}/${v.volta.slice(0, 4)} · ${v.adultos} adulto${Number(v.adultos) > 1 ? 's' : ''}${Number(v.flex) ? ' · flexibilidade ±' + v.flex + ' dia(s) no Google Voos' : ''} · Galeão e Santos Dumont · preços totais com a tarifa mais barata (inclui mala de mão) · fontes: Google Voos (GOL), MaxMilhas e Decolar`;
+  st.textContent = 'Situação: ' + (STATUS[v.status] || v.status) + (v.aviso ? ' · ' + v.aviso : '') + (v.status === 'ativa' ? ' · coletada a cada hora.' : '');
+  parar.hidden = v.status === 'encerrada' || !v.issue_url;
+  if (v.issue_url) { parar.href = v.issue_url; parar.title = 'Abre a viagem no GitHub: toque em “Close issue” para parar de monitorar'; parar.textContent = 'Parar de monitorar (abre o GitHub)'; }
+  const u = urls(v);
+  lt.replaceChildren('Ver passagem: ', link(u.google, 'Google Voos'), ' ', link(u.gol, 'GOL saindo do Galeão'), ' ', link(urls(v, 'SDU').gol, 'GOL saindo do Santos Dumont'), ' ', link(u.MaxMilhas, 'MaxMilhas'), ' ', link(u.Decolar, 'Decolar'));
+}
 
 const tip = (box) => { let t = box.querySelector('.mx-tip'); if (!t) { t = el('div', 'mx-tip'); t.hidden = true; box.appendChild(t); } return t; };
 const showTip = (box, t, x, y, lines) => {
@@ -555,20 +643,47 @@ const showTip = (box, t, x, y, lines) => {
 };
 const legend = (id, items) => document.getElementById(id).replaceChildren(...items.map(([c, n]) => { const s = el('span'); const i = el('i'); i.style.background = c; s.append(i, n); return s; }));
 const axisClean = (g) => g.attr('font-size', null).attr('font-family', null).call((s) => s.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)')).call((s) => s.selectAll('line,path').attr('stroke', 'var(--cds-chart-axis)'));
+const setWhere = (node, chave) => node.setAttribute('data-where', 'chave=' + chave);
+const inViagem = (p, o) => {
+  if (!p.v || Number(o.adultos ?? 2) !== Number(p.v.adultos)) return false;
+  const f = Number(p.v.flex_usada ?? p.v.flex ?? 0), base = o.sentido === 'ida' ? p.v.ida : p.v.volta;
+  const d = Math.round((Date.parse(o.data_voo + 'T12:00:00Z') - Date.parse(base + 'T12:00:00Z')) / 864e5);
+  return Math.abs(d) <= f;
+};
 
-function setWhere(node, chave) { node.setAttribute('data-where', 'chave=' + chave); }
+function drawSites(p) {
+  const S = dash.data('sites'), K = dash.data('combos_atuais');
+  const tb = document.querySelector('#tab-sites tbody'), best = document.getElementById('melhor-site'), tc = document.querySelector('#tab-combos tbody');
+  if (S.status !== 'ok' || !p.v) { tb.replaceChildren(); tc.replaceChildren(); best.replaceChildren(failed(['combos']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const rows = S.data.filter((r) => r.viagem === p.vid);
+  if (!rows.length) best.replaceChildren(el('div', '', 'Ainda sem preços para esta viagem: ela entra na próxima coleta.'));
+  else {
+    const b = rows[0], g = rows.find((r) => r.vendedor === 'Google Voos (GOL)');
+    const t = el('div', 't', '🏆 Mais barato agora: ' + b.vendedor + ' — ' + fBRL(b.atual) + (b.obs ? ' (' + b.obs + ')' : ''));
+    t.dataset.source = 'sites'; t.dataset.field = 'atual'; setWhere(t, b.chave);
+    const parts = [t, el('div', '', b.descricao)];
+    if (g && g !== b) parts.push(el('div', 'mx-note', 'Economia de ' + fBRL(g.atual - b.atual) + ' em relação à GOL pelo Google Voos.'));
+    const lk = el('div', 'mx-links'); lk.append(linkSite(p.v, b.vendedor)); parts.push(lk);
+    best.replaceChildren(...parts);
+  }
+  tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.chave;
+    const tdl = el('td'); tdl.append(linkSite(p.v, r.vendedor));
+    tr.append(el('td', '', r.vendedor), el('td', 'n', fBRL(r.atual)), el('td', '', r.descricao + (r.obs ? ' · ' + r.obs : '')), el('td', 'n', fBRL(r.menor)), el('td', '', fDT(r.menor_em)), tdl);
+    return tr; }));
+  tc.replaceChildren(...(K.status === 'ok' ? K.data.filter((r) => r.viagem === p.vid) : []).map((r) => { const tr = el('tr'); tr.dataset.key = r.chave;
+    tr.append(el('td', '', r.vendedor), el('td', 'n', fBRL(r.preco_total)), el('td', '', r.ida), el('td', '', r.volta), el('td', '', r.obs)); return tr; }));
+}
 
 function drawCards(p) {
-  const box = document.getElementById('cards');
-  box.replaceChildren();
+  const box = document.getElementById('cards'); box.replaceChildren();
   const R = dash.data('resumo');
-  if (R.status !== 'ok') { const c = el('div', 'mx-card'); c.append(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('div', 'dash-skeleton', '—')); box.append(c); return; }
-  const nomes = { ida: 'Ida · qua 25/11', volta: 'Volta · seg 30/11', total: 'Total ida + volta' };
+  if (R.status !== 'ok' || !p.v) { const c = el('div', 'mx-card'); c.append(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('div', 'dash-skeleton', '—')); box.append(c); return; }
+  const fx = Number(p.v.flex_usada ?? p.v.flex ?? 0);
+  const nomes = { ida: 'Ida · ' + fDS(p.v.ida) + (fx ? ' ±' + fx : ''), volta: 'Volta · ' + fDS(p.v.volta) + (fx ? ' ±' + fx : ''), total: 'Total ida + volta' };
   for (const seg of ['total', 'ida', 'volta']) {
-    const r = R.data.find((x) => x.chave === p.filtro + '|' + seg);
-    const c = el('div', 'mx-card'); c.id = 'card-' + seg;
-    c.append(el('h3', '', nomes[seg]));
-    if (!r || !r.n_coletas) { c.append(el('p', 'mx-note', 'Nenhuma tarifa nesta faixa de horário.')); box.append(c); continue; }
+    const r = R.data.find((x) => x.chave === p.vid + '|' + p.filtro + '|' + seg);
+    const c = el('div', 'mx-card'); c.id = 'card-' + seg; c.append(el('h3', '', nomes[seg]));
+    if (!r || !r.n_coletas) { c.append(el('p', 'mx-note', 'Sem tarifas ainda (ou nenhuma nesta faixa de horário).')); box.append(c); continue; }
     c.append(el('p', 'mx-note', 'Preço atual (' + fDT(r.atual_em) + ')'));
     const big = el('div', 'mx-big', fBRL(r.atual)); big.dataset.source = 'resumo'; big.dataset.field = 'atual'; setWhere(big, r.chave); c.append(big);
     const dl = el('dl', 'mx-kv');
@@ -582,36 +697,35 @@ function drawCards(p) {
     row('Coletas', 'n_coletas', String(r.n_coletas));
     c.append(dl);
     const v = el('p', 'mx-note', 'Voo do menor preço: ' + r.menor_voo); v.dataset.source = 'resumo'; v.dataset.field = 'menor_voo'; setWhere(v, r.chave); v.style.marginTop = 'var(--cds-gap-sm)';
-    c.append(v);
-    box.append(c);
+    c.append(v); box.append(c);
   }
 }
 
 function drawAlertas(p) {
-  const box = document.getElementById('lista-alertas');
-  const R = dash.data('resumo');
-  if (R.status !== 'ok') { box.replaceChildren(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const box = document.getElementById('lista-alertas'); const R = dash.data('resumo');
+  if (R.status !== 'ok' || !p.v) { box.replaceChildren(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
   const out = [];
+  const lk = () => { const l = el('div', 'mx-links'); const u = urls(p.v); l.append('Ver passagem:', link(u.gol, 'GOL'), link(u.MaxMilhas, 'MaxMilhas'), link(u.Decolar, 'Decolar'), link(u.google, 'Google Voos')); return l; };
   for (const seg of ['total', 'ida', 'volta']) {
-    const r = R.data.find((x) => x.chave === p.filtro + '|' + seg);
+    const r = R.data.find((x) => x.chave === p.vid + '|' + p.filtro + '|' + seg);
     if (!r || !r.n_coletas) continue;
-    const nome = seg === 'total' ? 'Ida + volta' : seg === 'ida' ? 'Ida 25/11' : 'Volta 30/11';
+    const nome = seg === 'total' ? 'Ida + volta' : seg === 'ida' ? 'Ida' : 'Volta';
     if (r.novo_recorde) {
       const a = el('div', 'mx-alert on'); a.append(el('div', 't', '🔔 NOVO MENOR PREÇO — ' + nome));
       const d = el('div', '', 'Antes: ' + fBRL(r.menor_anterior) + ' · Agora: ' + fBRL(r.atual) + ' · Economia potencial: ' + fBRL(r.economia));
-      d.dataset.source = 'resumo'; d.dataset.field = 'economia'; setWhere(d, r.chave); a.append(d, linksPassagem('GIG')); out.push(a);
+      d.dataset.source = 'resumo'; d.dataset.field = 'economia'; setWhere(d, r.chave); a.append(d, lk()); out.push(a);
     }
     if (r.n_coletas >= p.min_obs && r.dif_media_pct <= -15) {
       const a = el('div', 'mx-alert on'); a.append(el('div', 't', '🟢 BOA OPORTUNIDADE — ' + nome));
       const d = el('div', '', 'Preço atual ' + fBRL(r.atual) + ' · média ' + fBRL(r.medio) + ' · diferença ' + fPct(r.dif_media_pct));
-      d.dataset.source = 'resumo'; d.dataset.field = 'dif_media_pct'; setWhere(d, r.chave); a.append(d, linksPassagem('GIG')); out.push(a);
+      d.dataset.source = 'resumo'; d.dataset.field = 'dif_media_pct'; setWhere(d, r.chave); a.append(d, lk()); out.push(a);
     }
   }
-  const t = R.data.find((x) => x.chave === p.filtro + '|total');
+  const t = R.data.find((x) => x.chave === p.vid + '|' + p.filtro + '|total');
   if (!out.length) {
     const a = el('div', 'mx-alert');
-    a.textContent = t && t.n_coletas < 2 ? 'Primeira coleta registrada: os alertas comparam cada nova coleta com o histórico.'
-      : 'Nenhum alerta na última coleta: o preço não bateu o recorde' + (t && t.n_coletas >= p.min_obs ? ' nem ficou 15% abaixo da média.' : '. O alerta de oportunidade só é avaliado a partir de ' + p.min_obs + ' coletas.');
+    a.textContent = !t || t.n_coletas < 2 ? 'Os alertas comparam cada nova coleta com o histórico desta viagem; aparecem a partir da segunda coleta.'
+      : 'Nenhum alerta na última coleta: o preço não bateu o recorde' + (t.n_coletas >= p.min_obs ? ' nem ficou 15% abaixo da média.' : '. O alerta de oportunidade só é avaliado a partir de ' + p.min_obs + ' coletas.');
     out.push(a);
   }
   box.replaceChildren(...out);
@@ -619,66 +733,58 @@ function drawAlertas(p) {
 
 function drawIndice(p) {
   const O = dash.data('oportunidade'), R = dash.data('resumo');
-  const score = document.getElementById('score'), lab = document.getElementById('score-label');
-  const tb = document.querySelector('#tab-fatores tbody');
-  if (O.status !== 'ok' || R.status !== 'ok') { score.replaceChildren(el('span', 'dash-skeleton', '—')); tb.replaceChildren(); lab.textContent = ''; return; }
-  const rows = O.data.filter((r) => r.filtro === p.filtro);
-  const t = R.data.find((x) => x.chave === p.filtro + '|total');
+  const score = document.getElementById('score'), lab = document.getElementById('score-label'), tb = document.querySelector('#tab-fatores tbody');
+  if (O.status !== 'ok' || R.status !== 'ok' || !p.v) { score.replaceChildren(el('span', 'dash-skeleton', '—')); tb.replaceChildren(); lab.textContent = ''; return; }
+  const rows = O.data.filter((r) => r.viagem === p.vid && r.filtro === p.filtro);
+  const t = R.data.find((x) => x.chave === p.vid + '|' + p.filtro + '|total');
   const tot = rows.find((r) => r.fator === 'Total');
   if (t && t.n_coletas >= p.min_obs && tot) {
-    score.textContent = tot.pontos + '/100';
-    score.dataset.field = 'pontos'; setWhere(score, tot.chave);
+    score.textContent = tot.pontos + '/100'; score.dataset.field = 'pontos'; setWhere(score, tot.chave);
     const n = tot.pontos;
     lab.textContent = n >= 85 ? 'EXCELENTE OPORTUNIDADE' : n >= 70 ? 'BOA OPORTUNIDADE' : n >= 50 ? 'PREÇO RAZOÁVEL' : 'PREÇO POUCO VANTAJOSO';
     lab.className = 'mx-note ' + (n >= 70 ? 'mx-good' : n >= 50 ? '' : 'mx-warn');
   } else {
-    score.textContent = '—'; score.removeAttribute('data-field'); score.removeAttribute('data-where');
-    lab.className = 'mx-note';
+    score.textContent = '—'; score.removeAttribute('data-field'); score.removeAttribute('data-where'); lab.className = 'mx-note';
     lab.textContent = 'Índice exibido a partir de ' + p.min_obs + ' coletas (há ' + (t ? t.n_coletas : 0) + '). Os fatores já aparecem abaixo.';
   }
-  tb.replaceChildren(...rows.filter((r) => r.fator !== 'Total').map((r) => {
-    const tr = el('tr'); tr.dataset.key = r.chave;
-    tr.append(el('td', '', r.fator), el('td', '', r.detalhe), el('td', 'n', String(r.pontos)), el('td', 'n', String(r.max)));
-    return tr;
-  }));
+  tb.replaceChildren(...rows.filter((r) => r.fator !== 'Total').map((r) => { const tr = el('tr'); tr.dataset.key = r.chave;
+    tr.append(el('td', '', r.fator), el('td', '', r.detalhe), el('td', 'n', String(r.pontos)), el('td', 'n', String(r.max))); return tr; }));
 }
 
 function drawVoos(p) {
   const V = dash.data('voos'); const tb = document.querySelector('#tab-voos tbody'); const best = document.getElementById('melhor-voo');
-  if (V.status !== 'ok') { tb.replaceChildren(); best.replaceChildren(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  if (V.status !== 'ok' || !p.v) { tb.replaceChildren(); best.replaceChildren(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const rows = V.data.filter((r) => r.viagem === p.vid);
   const inF = (r) => p.filtro === 'qualquer' || r.no_filtro;
-  const bestOf = (s) => V.data.filter((r) => r.sentido === s && inF(r)).sort((a, b) => a.menor - b.menor || a.duracao_min - b.duracao_min)[0];
+  const bestOf = (s) => rows.filter((r) => r.sentido === s && inF(r)).sort((a, b) => a.menor - b.menor || a.duracao_min - b.duracao_min)[0];
   const bi = bestOf('ida'), bv = bestOf('volta');
   const parts = [el('div', 't', '🏆 MELHOR OPÇÃO ENCONTRADA')];
-  for (const b of [bi, bv]) if (b) {
-    const d = el('div', '', b.trecho + ' — ' + b.partida + ' — ' + b.rota + (b.conexoes ? ' via ' + b.conexoes : '') + ' — ' + fDur(b.duracao_min) + ' — ' + fBRL(b.menor));
-    d.dataset.source = 'voos'; d.dataset.field = 'menor'; d.dataset.where = 'voo_id=' + encodeURIComponent(b.voo_id).replace(/%7C/g, '|').replace(/%3A/g, ':').replace(/%2C/g, ','); parts.push(d);
-  }
-  parts.push(linksPassagem(bi ? String(bi.rota).slice(0, 3) : 'GIG'));
+  for (const b of [bi, bv]) if (b) { const d = el('div', '', b.trecho + ' — ' + b.partida + ' — ' + b.rota + (b.conexoes ? ' via ' + b.conexoes : '') + ' — ' + fDur(b.duracao_min) + ' — ' + fBRL(b.menor));
+    d.dataset.source = 'voos'; d.dataset.field = 'menor'; setWhere(d, b.chave); parts.push(d); }
+  if (!bi && !bv) parts.push(el('div', '', 'Ainda sem tarifas para esta viagem.'));
+  else { const lk = el('div', 'mx-links'); const u = urls(p.v, bi ? bi.rota.slice(0, 3) : 'GIG'); lk.append('Ver passagem:', link(u.gol, 'GOL'), link(u.google, 'Google Voos')); parts.push(lk); }
   best.className = 'mx-alert on'; best.replaceChildren(...parts);
-  tb.replaceChildren(...V.data.map((r) => {
-    const tr = el('tr', (r === bi || r === bv ? 'best' : '') + (inF(r) ? '' : ' dim')); tr.dataset.key = r.voo_id;
+  tb.replaceChildren(...rows.map((r) => {
+    const tr = el('tr', (r === bi || r === bv ? 'best' : '') + (inF(r) ? '' : ' dim')); tr.dataset.key = r.chave;
+    const rio = r.sentido === 'ida' ? r.rota.slice(0, 3) : r.rota.slice(-3);
+    const tdL = el('td'); tdL.append(/gol/i.test(r.cia) ? link(urls(p.v, rio).gol, 'Ver na GOL') : link(urls(p.v).google, 'Ver no Google Voos'));
     tr.append(el('td', '', r.trecho), el('td', '', r.partida), el('td', '', r.chegada), el('td', '', r.rota), el('td', '', r.conexoes || 'direto'), el('td', '', r.cia),
-      el('td', 'n', fDur(r.duracao_min)), el('td', 'n', fBRL(r.menor)), el('td', 'n', r.atual === null ? '' : fBRL(r.atual)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.vezes)));
-    const tdL = el('td'); tdL.append(linkVoo(r)); tr.append(tdL);
+      el('td', 'n', fDur(r.duracao_min)), el('td', 'n', fBRL(r.menor)), el('td', 'n', r.atual === null ? '' : fBRL(r.atual)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.vezes)), tdL);
     return tr;
   }));
 }
 
 function drawFaixas(p) {
   const F = dash.data('faixas'), R = dash.data('resumo'); const tb = document.querySelector('#tab-faixas tbody'); const c = document.getElementById('conclusao-faixa');
-  if (F.status !== 'ok' || R.status !== 'ok') { tb.replaceChildren(); c.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
-  tb.replaceChildren(...F.data.filter((r) => r.n_ofertas > 0).map((r) => {
-    const tr = el('tr'); tr.dataset.key = r.chave;
-    tr.append(el('td', '', r.trecho), el('td', '', r.faixa), el('td', 'n', fBRL(r.menor)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.n_ofertas)));
-    return tr;
-  }));
-  const t = R.data.find((x) => x.chave === 'qualquer|total');
-  const n = t ? t.n_coletas : 0;
+  if (F.status !== 'ok' || R.status !== 'ok' || !p.v) { tb.replaceChildren(); c.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
+  const rows = F.data.filter((r) => r.viagem === p.vid);
+  tb.replaceChildren(...rows.filter((r) => r.n_ofertas > 0).map((r) => { const tr = el('tr'); tr.dataset.key = r.chave;
+    tr.append(el('td', '', r.trecho), el('td', '', r.faixa), el('td', 'n', fBRL(r.menor)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.n_ofertas))); return tr; }));
+  const t = R.data.find((x) => x.chave === p.vid + '|qualquer|total'); const n = t ? t.n_coletas : 0;
   if (n < p.min_obs) { c.className = 'mx-alert'; c.textContent = insuf + ' (' + n + ' de ' + p.min_obs + ' coletas.)'; return; }
   const lines = [];
   for (const s of ['ida', 'volta']) {
-    const fs = F.data.filter((r) => r.sentido === s && r.n_ofertas >= 3);
+    const fs = rows.filter((r) => r.sentido === s && r.n_ofertas >= 3);
     if (fs.length < 2) { lines.push((s === 'ida' ? 'Ida' : 'Volta') + ': só há voos em uma faixa de horário, não há o que comparar.'); continue; }
     const b = fs.reduce((a, r) => (r.medio < a.medio ? r : a)), w = fs.reduce((a, r) => (r.medio > a.medio ? r : a));
     lines.push('🟢 ' + (s === 'ida' ? 'Ida' : 'Volta') + ': horário com melhor preço ' + b.faixa + ' (média ' + fBRL(b.medio) + '). Voos de ' + w.faixa + ' custam, em média, ' + fPct((w.medio - b.medio) / b.medio * 100).replace('+', '') + ' a mais.');
@@ -688,12 +794,11 @@ function drawFaixas(p) {
 
 function drawMomento(p) {
   const M = dash.data('momento'); const tb = document.querySelector('#tab-momento tbody'); const c = document.getElementById('conclusao-momento');
-  if (M.status !== 'ok') { tb.replaceChildren(); c.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
-  const rows = M.data.filter((r) => r.filtro === p.filtro && r.n > 0);
+  if (M.status !== 'ok' || !p.v) { tb.replaceChildren(); c.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
+  const rows = M.data.filter((r) => r.viagem === p.vid && r.filtro === p.filtro && r.n > 0);
   tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.chave; tr.append(el('td', '', r.tipo), el('td', '', r.grupo), el('td', 'n', fBRL(r.menor)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.n))); return tr; }));
   const tot = rows.filter((r) => r.tipo === 'Hora da consulta').reduce((a, r) => a + r.n, 0);
-  const minG = Math.max(3, Math.ceil(p.min_obs / 4));
-  const lines = [];
+  const minG = Math.max(3, Math.ceil(p.min_obs / 4)); const lines = [];
   for (const tipo of ['Hora da consulta', 'Antecedência']) {
     const g = rows.filter((r) => r.tipo === tipo && r.n >= minG);
     if (tot < p.min_obs || g.length < 2) continue;
@@ -712,60 +817,36 @@ function drawColetas() {
   if (C.status !== 'ok') { tb.replaceChildren(); s.replaceChildren(failed(['coletas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
   const rows = [...C.data].sort((a, b) => new Date(b.coletado_em) - new Date(a.coletado_em));
   const ok = rows.filter((r) => r.status === 'ok').length;
-  s.textContent = 'Busca automática a cada hora pelo navegador do app Claude no seu computador. ' + rows.length + ' coletas registradas (' + ok + ' com sucesso, ' + (rows.length - ok) + ' com falha). Última: ' + (rows[0] ? fDT(rows[0].coletado_em) : '—') + '.';
+  s.textContent = 'Busca automática a cada hora pelo navegador do app Claude no seu computador. ' + rows.length + ' coletas registradas (' + ok + ' com Google Voos completo). Última: ' + (rows[0] ? fDT(rows[0].coletado_em) : '—') + '.';
+  const stc = (x) => el('td', x === 'falha' ? 'mx-bad' : x === 'parcial' ? 'mx-warn' : '', x === 'ok' ? 'ok' : x === 'falha' ? 'falha' : x === 'parcial' ? 'parcial' : '—');
   tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.coleta_id;
-    const stc = (s) => el('td', s === 'falha' ? 'mx-bad' : '', s === 'ok' ? 'ok' : s === 'falha' ? 'falha' : '—');
-    tr.append(el('td', '', fDT(r.coletado_em)), stc(r.status), el('td', 'n', String(r.ofertas_ida)), el('td', 'n', String(r.ofertas_volta)), stc(r.maxmilhas || ''), stc(r.decolar || ''), el('td', '', r.alerta || ''), el('td', '', r.erro || ''));
+    tr.append(el('td', '', fDT(r.coletado_em)), stc(r.status), el('td', 'n', String(r.ofertas_ida)), el('td', 'n', String(r.ofertas_volta)), stc(r.maxmilhas || ''), stc(r.decolar || ''), el('td', 'n', String(r.viagens_ativas ?? 1)), el('td', '', r.alerta || ''), el('td', '', r.erro || ''));
     return tr; }));
-}
-
-const URL_SITE = { 'MaxMilhas': 'https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/2026-11-25/2026-11-30/2/0/0/EC', 'Decolar': 'https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/2026-11-25/2026-11-30/2/0/0' };
-const linkSite = (v) => URL_SITE[v] ? link(URL_SITE[v], 'Ver no ' + v) : link(urlGol('GIG'), 'Ver na GOL');
-function drawSites() {
-  const S = dash.data('sites'), K = dash.data('combos_atuais');
-  const tb = document.querySelector('#tab-sites tbody'), best = document.getElementById('melhor-site'), tc = document.querySelector('#tab-combos tbody');
-  if (S.status !== 'ok') { tb.replaceChildren(); tc.replaceChildren(); best.replaceChildren(failed(['combos']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
-  const rows = S.data;
-  if (rows.length) {
-    const b = rows[0], g = rows.find((r) => r.vendedor === 'Google Voos (GOL)');
-    const t = el('div', 't', '🏆 Mais barato agora: ' + b.vendedor + ' — ' + fBRL(b.atual) + (b.obs ? ' (' + b.obs + ')' : ''));
-    t.dataset.source = 'sites'; t.dataset.field = 'atual'; t.dataset.where = 'vendedor=' + b.vendedor;
-    const d = el('div', '', b.descricao);
-    const parts = [t, d];
-    if (g && g !== b) parts.push(el('div', 'mx-note', 'Economia de ' + fBRL(g.atual - b.atual) + ' em relação à GOL pelo Google Voos.'));
-    const lk = el('div', 'mx-links'); lk.append(linkSite(b.vendedor)); parts.push(lk);
-    best.replaceChildren(...parts);
-  }
-  tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.vendedor;
-    const tdl = el('td'); tdl.append(linkSite(r.vendedor));
-    tr.append(el('td', '', r.vendedor), el('td', 'n', fBRL(r.atual)), el('td', '', r.descricao + (r.obs ? ' · ' + r.obs : '')), el('td', 'n', fBRL(r.menor)), el('td', '', fDT(r.menor_em)), tdl);
-    return tr; }));
-  if (K.status === 'ok') tc.replaceChildren(...K.data.map((r) => { const tr = el('tr'); tr.dataset.key = r.chave;
-    tr.append(el('td', '', r.vendedor), el('td', 'n', fBRL(r.preco_total)), el('td', '', r.ida), el('td', '', r.volta), el('td', '', r.obs)); return tr; }));
 }
 
 function drawTake(p) {
-  const T = document.getElementById('takeaway'); const R = dash.data('resumo');
-  if (R.status !== 'ok') { T.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
-  const t = R.data.find((x) => x.chave === p.filtro + '|total');
-  if (!t || !t.n_coletas) { T.textContent = 'Nenhuma combinação de ida e volta nesta faixa de horário.'; return; }
+  const T = document.getElementById('takeaway'); const R = dash.data('resumo'), SS = dash.data('sites');
+  if (R.status !== 'ok' || !p.v) { T.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
+  const t = R.data.find((x) => x.chave === p.vid + '|' + p.filtro + '|total');
+  const bs = SS.status === 'ok' ? SS.data.filter((r) => r.viagem === p.vid)[0] : null;
+  if (!t || !t.n_coletas) { T.textContent = bs ? 'Mais barato agora: ' + fBRL(bs.atual) + ' no ' + bs.vendedor + '.' : 'Esta viagem ainda não tem preços: ela entra na próxima coleta (a cada hora).'; return; }
   const rel = t.atual === t.menor ? 'igual ao menor já visto' : fPct(t.variacao_pct) + ' acima do menor (' + fBRL(t.menor) + ' em ' + fDT(t.menor_em) + ')';
-  const SS = dash.data('sites'); const bs = SS.status === 'ok' && SS.data.length ? SS.data[0] : null;
-  T.textContent = (bs ? 'Mais barato agora entre os sites: ' + fBRL(bs.atual) + ' no ' + bs.vendedor + '. ' : '') + 'GOL pelo Google Voos: ' + fBRL(t.atual) + ', ' + rel + '. ' + t.n_coletas + (t.n_coletas === 1 ? ' coleta registrada' : ' coletas registradas') +
-    (t.n_coletas < p.min_obs ? '; padrões de horário e de momento de compra aparecem a partir de ' + p.min_obs + '.' : '.');
+  T.textContent = (bs ? 'Mais barato agora entre os sites: ' + fBRL(bs.atual) + ' no ' + bs.vendedor + '. ' : '') + 'GOL pelo Google Voos: ' + fBRL(t.atual) + ', ' + rel + '. ' + t.n_coletas
+    + (t.n_coletas === 1 ? ' coleta registrada' : ' coletas registradas') + (t.n_coletas < p.min_obs ? '; padrões de horário e de momento de compra aparecem a partir de ' + p.min_obs + '.' : '.');
 }
 
 function drawHora(p) {
   const box = document.getElementById('ch-hora'); const O = dash.data('ofertas');
   box.querySelectorAll('svg,.mx-fail').forEach((n) => n.remove());
   const cols = { ida: dash.colors[0], volta: dash.colors[1] };
-  legend('leg1', [[cols.ida, 'Ida 25/11'], [cols.volta, 'Volta 30/11']]);
-  if (O.status !== 'ok') { if (O.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
-  const pts = O.data.map((o) => ({ ...o, h: Number(String(o.partida).slice(0, 2)) + Number(String(o.partida).slice(3, 5)) / 60, v: Number(o.preco_total) }))
+  legend('leg1', [[cols.ida, 'Ida'], [cols.volta, 'Volta']]);
+  if (O.status !== 'ok' || !p.v) { if (O.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
+  const pts = O.data.filter((o) => inViagem(p, o)).map((o) => ({ ...o, h: Number(String(o.partida).slice(0, 2)) + Number(String(o.partida).slice(3, 5)) / 60, v: Number(o.preco_total) }))
     .filter((o) => p.filtro === 'qualquer' || (o.partida >= '06:00' && o.partida <= '22:00'));
+  if (!pts.length) return;
   const W = box.clientWidth, H = 260;
   const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
-  const yMax = d3.max(pts, (d) => d.v) || 1, yMin = d3.min(pts, (d) => d.v) || 0;
+  const yMax = d3.max(pts, (d) => d.v), yMin = d3.min(pts, (d) => d.v);
   const y = d3.scaleLinear([Math.max(0, yMin * 0.9), yMax * 1.05], [H - 24, 10]).nice();
   const gy = svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat((v) => 'R$ ' + d3.format(',')(v).replace(/,/g, '.')));
   axisClean(gy); let ml = 0; gy.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); }); ml += 14;
@@ -776,7 +857,7 @@ function drawHora(p) {
   const t = tip(box);
   svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', (d) => x(d.h)).attr('cy', (d) => y(d.v)).attr('r', 5)
     .attr('fill', (d) => cols[d.sentido]).attr('fill-opacity', 0.55).attr('stroke', (d) => cols[d.sentido])
-    .on('mousemove', (e, d) => { const [mx, my] = d3.pointer(e, box); showTip(box, t, mx, my, [fDT(d.coletado_em), (d.sentido === 'ida' ? 'Ida ' : 'Volta ') + d.partida + ' ' + d.origem + '→' + d.destino, (d.conexoes ? 'via ' + String(d.conexoes).replace(/,/g, ', ') + ' · ' : '') + fDur(d.duracao_min), fBRL(d.v)]); })
+    .on('mousemove', (e, d) => { const [mx, my] = d3.pointer(e, box); showTip(box, t, mx, my, [fDT(d.coletado_em), (d.sentido === 'ida' ? 'Ida ' : 'Volta ') + fD(d.data_voo) + ' ' + d.partida + ' ' + d.origem + '→' + d.destino, (d.conexoes ? 'via ' + String(d.conexoes).replace(/,/g, ', ') + ' · ' : '') + fDur(d.duracao_min), fBRL(d.v)]); })
     .on('mouseleave', () => { t.hidden = true; });
 }
 
@@ -785,13 +866,13 @@ function drawSerie(p) {
   box.querySelectorAll('svg,.mx-fail,.mx-note').forEach((n) => n.remove());
   const ser = [['min_total', 'Total', dash.colors[2]], ['min_ida', 'Ida', dash.colors[0]], ['min_volta', 'Volta', dash.colors[1]]];
   legend('leg2', ser.map(([, n, c]) => [c, n]));
-  if (S.status !== 'ok') { if (S.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
-  const rows = S.data.filter((r) => r.filtro === p.filtro).map((r) => ({ ...r, d: new Date(r.coletado_em) }));
+  if (S.status !== 'ok' || !p.v) { if (S.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
+  const rows = S.data.filter((r) => r.viagem === p.vid && r.filtro === p.filtro).map((r) => ({ ...r, d: new Date(r.coletado_em) }));
   const W = box.clientWidth, H = 260;
   if (rows.length < 2) box.append(el('p', 'mx-note', 'A linha aparece a partir da segunda coleta; por enquanto há ' + rows.length + '.'));
-  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
   const vals = rows.flatMap((r) => ser.map(([k]) => r[k]).filter((v) => v !== null)).map(Number);
   if (!vals.length) return;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
   const y = d3.scaleLinear([0, d3.max(vals) * 1.08], [H - 24, 10]).nice();
   const gy = svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat((v) => 'R$ ' + d3.format(',')(v).replace(/,/g, '.')));
   axisClean(gy); let ml = 0; gy.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); }); ml += 14;
@@ -803,8 +884,7 @@ function drawSerie(p) {
   const ends = [];
   for (const [k, n, c] of ser) {
     const d = rows.filter((r) => r[k] !== null);
-    svg.append('path').datum(d).attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
-      .attr('d', d3.line().x((r) => x(r.d)).y((r) => y(Number(r[k]))));
+    svg.append('path').datum(d).attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', d3.line().x((r) => x(r.d)).y((r) => y(Number(r[k]))));
     svg.append('g').selectAll('circle').data(d).join('circle').attr('cx', (r) => x(r.d)).attr('cy', (r) => y(Number(r[k]))).attr('r', 3).attr('fill', c);
     if (d.length) ends.push({ x: x(d[d.length - 1].d) + 6, y: y(Number(d[d.length - 1][k])) + 4, c, n });
   }
@@ -817,21 +897,20 @@ function drawSerie(p) {
   svg.append('rect').attr('x', ml).attr('y', 0).attr('width', W - ml).attr('height', H).attr('fill', 'transparent')
     .on('mousemove', (e) => { const [mx, my] = d3.pointer(e, box); const dt = x.invert(mx); const r = rows.reduce((a, b) => (Math.abs(b.d - dt) < Math.abs(a.d - dt) ? b : a));
       rule.attr('x1', x(r.d)).attr('x2', x(r.d)).style('display', null);
-      showTip(box, t, mx, my, [fDT(r.coletado_em), 'Total ' + fBRL(r.min_total), 'Ida ' + fBRL(r.min_ida), 'Volta ' + fBRL(r.min_volta)]); })
+      showTip(box, t, mx, my, [fDT(r.coletado_em), 'Total ' + fBRL(r.min_total) + (r.data_ida ? ' (' + fD(r.data_ida) + '→' + fD(r.data_volta) + ')' : ''), 'Ida ' + fBRL(r.min_ida), 'Volta ' + fBRL(r.min_volta)]); })
     .on('mouseleave', () => { t.hidden = true; rule.style('display', 'none'); });
 }
 
 function drawMapa(p) {
   const box = document.getElementById('ch-mapa'); const O = dash.data('ofertas');
   box.querySelectorAll('svg,.mx-fail').forEach((n) => n.remove());
-  const cs = getComputedStyle(document.getElementById('dash-root'));
-  const c0 = cs.getPropertyValue('--cds-chart-muted').trim() || '#ccc', c1 = getComputedStyle(box).color;
-  if (O.status !== 'ok') { legend('leg3', []); if (O.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
-  const pts = O.data.map((o) => ({ ...o, d: new Date(o.coletado_em), h: Number(String(o.partida).slice(0, 2)) + Number(String(o.partida).slice(3, 5)) / 60, v: Number(o.preco_total) }))
+  const c0 = getComputedStyle(document.getElementById('dash-root')).getPropertyValue('--cds-chart-muted').trim() || '#ccc', c1 = getComputedStyle(box).color;
+  if (O.status !== 'ok' || !p.v) { legend('leg3', []); if (O.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
+  const pts = O.data.filter((o) => inViagem(p, o)).map((o) => ({ ...o, d: new Date(o.coletado_em), h: Number(String(o.partida).slice(0, 2)) + Number(String(o.partida).slice(3, 5)) / 60, v: Number(o.preco_total) }))
     .filter((o) => p.filtro === 'qualquer' || (o.partida >= '06:00' && o.partida <= '22:00'));
+  if (!pts.length) { legend('leg3', []); return; }
   const [vmin, vmax] = d3.extent(pts, (d) => d.v);
-  const col = d3.scaleLinear([vmin, vmax === vmin ? vmin + 1 : vmax], [0, 1]).clamp(true);
-  const ramp = d3.interpolateRgb(c0, c1);
+  const col = d3.scaleLinear([vmin, vmax === vmin ? vmin + 1 : vmax], [0, 1]).clamp(true), ramp = d3.interpolateRgb(c0, c1);
   legend('leg3', [[ramp(0), 'mais barato ' + fBRL(vmin)], [ramp(1), 'mais caro ' + fBRL(vmax)]]);
   const W = box.clientWidth, H = 260;
   const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
@@ -844,9 +923,8 @@ function drawMapa(p) {
   svg.append('g').attr('transform', `translate(0,${H - 24})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - ml) / 110))).tickFormat(d3.timeFormat('%d/%m %Hh'))).call(axisClean);
   svg.append('g').selectAll('line').data([6, 12, 18]).join('line').attr('x1', ml).attr('x2', W - 10).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
   const t = tip(box);
-  svg.append('g').selectAll('rect').data(pts).join('rect').attr('x', (d) => x(d.d) - 4).attr('y', (d) => y(d.h) - 4).attr('width', 8).attr('height', 8).attr('rx', 2)
-    .attr('fill', (d) => ramp(col(d.v)))
-    .on('mousemove', (e, d) => { const [mx, my] = d3.pointer(e, box); showTip(box, t, mx, my, [fDT(d.coletado_em), (d.sentido === 'ida' ? 'Ida ' : 'Volta ') + d.partida + ' ' + d.origem + '→' + d.destino, fBRL(d.v)]); })
+  svg.append('g').selectAll('rect').data(pts).join('rect').attr('x', (d) => x(d.d) - 4).attr('y', (d) => y(d.h) - 4).attr('width', 8).attr('height', 8).attr('rx', 2).attr('fill', (d) => ramp(col(d.v)))
+    .on('mousemove', (e, d) => { const [mx, my] = d3.pointer(e, box); showTip(box, t, mx, my, [fDT(d.coletado_em), (d.sentido === 'ida' ? 'Ida ' : 'Volta ') + fD(d.data_voo) + ' ' + d.partida + ' ' + d.origem + '→' + d.destino, fBRL(d.v)]); })
     .on('mouseleave', () => { t.hidden = true; });
 }
 
@@ -855,8 +933,8 @@ dash.onData(() => {
   selF.value = p.filtro;
   if (inpM !== document.activeElement) inpM.value = p.min_obs;
   fimRefresh();
-  drawSites();
-  drawTake(p); drawCards(p); drawAlertas(p); drawIndice(p); drawVoos(p); drawFaixas(p); drawHora(p); drawSerie(p); drawMapa(p); drawMomento(p); drawColetas();
+  drawViagem(p); drawSites(p); drawTake(p); drawCards(p); drawAlertas(p); drawIndice(p); drawVoos(p); drawFaixas(p);
+  drawHora(p); drawSerie(p); drawMapa(p); drawMomento(p); drawColetas();
 });
 </script>
 
