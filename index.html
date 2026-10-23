@@ -3,138 +3,859 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Passagens Rio → Carajás</title>
+<title>Monitor RIO → Carajás</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
-  :root { --bg:#f6f4ef; --card:#ffffff; --fg:#1d1b18; --muted:#6b6560; --line:#e4dfd6; --good:#1f7a3f; --accent:#c4552d; --btn:#1d4e89; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#1b1a18; --card:#262421; --fg:#f2efe9; --muted:#b3ada4; --line:#3a3733; --good:#5cc483; --accent:#e58a63; --btn:#5b9be0; } }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size:18px; line-height:1.45; }
-  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 18px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin: 14px 0; }
-  .label { color: var(--muted); font-size: .95rem; margin: 0; }
-  .big { font-size: 2.6rem; font-weight: 700; margin: 4px 0; font-variant-numeric: tabular-nums; }
-  .good { color: var(--good); }
-  .detail { margin: 6px 0 14px; }
-  a.btn { display: block; text-align: center; background: var(--btn); color: #fff; text-decoration: none; font-weight: 700; padding: 14px; border-radius: 10px; font-size: 1.1rem; }
-  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
-  .row:first-of-type { border-top: 0; }
-  .row .name { font-weight: 700; }
-  .row .price { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .row .info { color: var(--muted); font-size: .9rem; }
-  .row a { color: var(--btn); font-weight: 700; }
-  .note { color: var(--muted); font-size: .9rem; }
-  svg text { fill: var(--muted); font-size: 12px; }
-  .err { color: var(--accent); }
+:root {
+  --font-anthropic-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --color-fg: #1d1b18; --color-fg-muted: #6b6560; --color-bg: #f6f4ef; --color-panel: #ffffff; --color-border-line: #e4dfd6;
+  --color-ok: #1f7a3f; --color-warn: #a35a00; --color-bad: #b42318;
+  --cds-radius: 12px; --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 16px; --cds-pad-xl: 24px;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 14px; --cds-gap-lg: 22px; --cds-gap-xl: 32px;
+  --cds-font-size-caption: 13px; --cds-font-size-body: 15px; --cds-font-size-heading: 18px; --cds-font-size-title: 30px;
+  --cds-font-weight-medium: 600;
+  --cds-chart-muted: #d9d3c9; --cds-chart-grid: #ece8e1; --cds-chart-axis: #c9c2b7; --cds-chart-reference: #8f877c; --cds-chart-status-critical: #b42318;
+  --cds-surface-popover: #ffffff; --cds-border: #e4dfd6; --cds-shadow-popover: 0 4px 16px rgba(0,0,0,.12); --cds-text-secondary: #6b6560;
+  --cds-dur-slow: .4s; --cds-ease-out: cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme: dark) { :root {
+  --color-fg: #f2efe9; --color-fg-muted: #b3ada4; --color-bg: #1b1a18; --color-panel: #262421; --color-border-line: #3a3733;
+  --color-ok: #5cc483; --color-warn: #e0a24a; --color-bad: #f07a6e;
+  --cds-chart-muted: #4a4640; --cds-chart-grid: #34312d; --cds-chart-axis: #57524b; --cds-chart-reference: #8f877c;
+  --cds-surface-popover: #2f2c29; --cds-border: #3a3733; --cds-text-secondary: #b3ada4;
+} }
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); }
+#dash-root { max-width: 1100px; margin: 0 auto; padding: 20px var(--dash-gutter, 16px) 48px; }
+.dash-skeleton { display: inline-block; min-width: 6rem; height: 1em; border-radius: 6px; background: var(--color-border-line); color: transparent; }
+.site-top { display: flex; justify-content: flex-end; font-size: 13px; margin-bottom: 6px; }
+.site-top a { color: var(--color-fg-muted); }
 </style>
+<script>
+(function () {
+  const FILES = { ofertas: 'data/ofertas.json', coletas: 'data/coletas.json', combos: 'data/combos.json' };
+  const DEFAULTS = { filtro: 'qualquer', min_obs: 24 };
+  const dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+  const store = {}; const calcs = {}; const order = []; const cbs = [];
+  let params = Object.assign({}, DEFAULTS);
+  for (const id in FILES) store[id] = { status: 'loading', data: [], refreshing: false, meta: [] };
+  function compute() {
+    const res = {};
+    const get = (id) => {
+      if (store[id]) return store[id].status === 'ok' ? store[id].data : null;
+      if (id in res) return res[id];
+      const c = calcs[id]; if (!c) return null;
+      const ins = c.inputs.map(get);
+      if (ins.some((x) => x === null)) { res[id] = null; return null; }
+      try { res[id] = c.fn(...ins); } catch (e) { console.error('calc', id, e); res[id] = null; }
+      return res[id];
+    };
+    for (const id of order) {
+      const v = get(id);
+      const anyErr = calcs[id].inputs.some((i) => store[i] && store[i].status === 'error');
+      store['__' + id] = v === null ? { status: anyErr ? 'error' : 'loading', data: [], meta: [] } : { status: 'ok', data: v, meta: [], refreshing: false };
+    }
+  }
+  function render() { for (const f of cbs) { try { f(); } catch (e) { console.error(e); } } }
+  async function load() {
+    await Promise.all(Object.keys(FILES).map(async (id) => {
+      try { const r = await fetch(FILES[id] + '?t=' + Date.now()); if (!r.ok) throw new Error(r.status);
+        store[id] = { status: 'ok', data: await r.json(), refreshing: false, meta: [] };
+      } catch (e) { store[id] = { status: 'error', data: [], message: String(e), meta: [] }; }
+    }));
+    compute(); render();
+  }
+  window.dash = {
+    data(id) { return store[id] || store['__' + id] || { status: 'missing', data: [], meta: [] }; },
+    calc(id, def) { calcs[id] = def; order.push(id); },
+    loader() {},
+    onData(fn) { cbs.push(fn); try { fn(); } catch (e) { console.error(e); } },
+    params() { return Object.assign({}, params); },
+    setParams(p) { params = Object.assign({}, params, p); render(); },
+    resetParams() { params = Object.assign({}, DEFAULTS); render(); },
+    refresh() { for (const id in FILES) store[id].refreshing = true; render(); clearTimeout(window.__rl); window.__rl = setTimeout(load, 50); },
+    setLink() {},
+    colors: dark ? ['#7aa7e8', '#e58a63', '#5cc483', '#c792ea', '#e0c060', '#4fc1c6', '#f07aa8', '#a0a0a0'] : ['#1d4e89', '#c4552d', '#1f7a3f', '#7b3fa0', '#a07d00', '#0f7c80', '#b0306a', '#6b6560'],
+  };
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
+  window.addEventListener('DOMContentLoaded', load);
+})();
+</script>
 </head>
 <body>
-<main>
-  <h1>Passagens Rio → Carajás</h1>
-  <p class="sub">Ida <b>quarta, 25/11</b> · Volta <b>segunda, 30/11</b> · <b>2 pessoas</b> · preço total, ida e volta</p>
+<div id="dash-root">
+<div class="site-top"><a href="simples.html">Versão simples (letras grandes)</a></div>
+<style>
+#dash-root { --dash-gutter: var(--cds-pad-md); }
+.mx { font-family: var(--font-anthropic-sans); color: var(--color-fg); display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+.mx h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; }
+.mx h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0 0 var(--cds-gap-sm); }
+.mx h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.mx-sub { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: var(--cds-gap-xs) 0 0; }
+.mx-take { font-size: var(--cds-font-size-body); margin: var(--cds-gap-sm) 0 0; line-height: 1.5; }
+.mx-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: end; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.mx-controls label { display: flex; flex-direction: column; gap: var(--cds-gap-xs); }
+.mx-controls select, .mx-controls input { font: inherit; color: var(--color-fg); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); }
+.mx-controls input { width: 5rem; }
+.mx-controls button { font: inherit; color: var(--color-fg); background: transparent; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; }
+.mx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: var(--cds-gap-md); }
+.mx-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.mx-note { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: 0 0 var(--cds-gap-sm); line-height: 1.45; }
+.mx-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; margin: var(--cds-gap-xs) 0; }
+.mx-kv { display: grid; grid-template-columns: auto 1fr; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.mx-kv dt { color: var(--color-fg-muted); }
+.mx-kv dd { margin: 0; text-align: right; }
+.mx-good { color: var(--color-ok); }
+.mx-warn { color: var(--color-warn); }
+.mx-bad { color: var(--color-bad); }
+.mx-alert { border-left: 3px solid var(--color-border-line); padding: var(--cds-pad-xs) var(--cds-pad-sm); margin: var(--cds-gap-sm) 0; font-size: var(--cds-font-size-body); line-height: 1.5; }
+.mx-alert.on { border-left-color: var(--color-ok); }
+.mx-alert .t { font-weight: var(--cds-font-weight-medium); }
+.mx-tablebox { overflow: auto; max-height: 26rem; }
+.mx table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.mx th { text-align: left; color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); position: sticky; top: 0; background: var(--color-panel); white-space: nowrap; }
+.mx td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.mx td.n, .mx th.n { text-align: right; }
+.mx tr.best td { font-weight: var(--cds-font-weight-medium); }
+.mx tr.dim td { opacity: .45; }
+.mx-chart { position: relative; min-height: 260px; }
+.mx-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); line-height: 1.45; z-index: 2; white-space: nowrap; }
+.mx-tip .d { color: var(--cds-text-secondary); }
+.mx-legend { display: flex; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-bottom: var(--cds-gap-xs); flex-wrap: wrap; }
+.mx-legend i { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .3rem; vertical-align: middle; }
+.mx-score { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title); font-weight: 400; }
+.mx a.mx-link { color: var(--color-fg); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.mx-links { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-sm) 0 0; }
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.mx-fail { display: flex; align-items: center; justify-content: center; gap: .4rem; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); min-height: 6rem; }
+.mx-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+</style>
 
-  <div class="card" id="melhor">
-    <p class="label">Menor preço agora</p>
-    <p class="big good" id="m-preco">carregando…</p>
-    <p class="detail" id="m-onde"></p>
-    <a class="btn" id="m-link" href="#" target="_blank" rel="noopener">Ver esta passagem</a>
+<div class="mx">
+  <header id="topo">
+    <h1>Monitor RIO → Carajás (CKS)</h1>
+    <p class="mx-sub">Ida 25/11/2026 · Volta 30/11/2026 · 2 adultos · Galeão e Santos Dumont · preços totais com tarifa mais barata (inclui mala de mão 12 kg) · fontes: Google Voos (GOL), MaxMilhas e Decolar</p>
+    <p class="mx-take" id="takeaway" data-source="resumo sites"><span class="dash-skeleton">—</span></p>
+    <p class="mx-links" id="links-topo">Ver passagem:
+      <a class="mx-link" target="_blank" rel="noopener noreferrer" href="https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTExLTI1agwIAhIIL20vMDZnbXJyBwgBEgNDS1MaIxIKMjAyNi0xMS0zMGoHCAESA0NLU3IMCAISCC9tLzA2Z21yQAFAAUgBcAGCAQsI____________AZgBAQ&amp;hl=pt-BR&amp;gl=BR&amp;curr=BRL">Google Voos (ida e volta)</a>
+      <a class="mx-link" target="_blank" rel="noopener noreferrer" href="https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&amp;tipo=RT&amp;de=GIG&amp;para=CKS&amp;ida=25-11-2026&amp;volta=30-11-2026&amp;ADT=2&amp;CHD=0&amp;INF=0">GOL saindo do Galeão</a>
+      <a class="mx-link" target="_blank" rel="noopener noreferrer" href="https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&amp;tipo=RT&amp;de=SDU&amp;para=CKS&amp;ida=25-11-2026&amp;volta=30-11-2026&amp;ADT=2&amp;CHD=0&amp;INF=0">GOL saindo do Santos Dumont</a>
+    </p>
+  </header>
+
+  <div class="mx-controls" id="controles">
+    <label>Horário de partida
+      <select class="mx-filtro" aria-label="Horário de partida">
+        <option value="qualquer">Qualquer horário</option>
+        <option value="06-22">Somente entre 06:00 e 22:00</option>
+      </select>
+    </label>
+    <label>Mínimo de coletas para conclusões
+      <input class="mx-minobs" type="number" min="3" max="500" step="1" aria-label="Mínimo de coletas">
+    </label>
+    <label>Datas monitoradas
+      <span style="color: var(--color-fg); padding: var(--cds-pad-xs) 0;">Fixas (sem flexibilidade de ± dias)</span>
+    </label>
+    <button class="mx-reset" type="button">Restaurar padrões</button>
+    <button class="mx-refresh" type="button">↻ Atualizar dados</button>
+    <span class="mx-refresh-msg" aria-live="polite"></span>
   </div>
 
-  <div class="card">
-    <p class="label">Preço em cada site agora</p>
-    <div id="sites"></div>
-  </div>
+  <section id="sites-sec">
+    <h2>Comparação entre sites (ida + volta, 2 adultos)</h2>
+    <p class="mx-note">Google Voos mostra a tarifa da GOL (soma da ida mais barata com a volta mais barata). MaxMilhas e Decolar são consultados direto no site, que vende as duas companhias, inclusive a Azul. Preço total com taxas; no MaxMilhas, o valor é no PIX.</p>
+    <div class="mx-card">
+      <div id="melhor-site" class="mx-alert on" style="margin-top:0" data-source="sites"><span class="dash-skeleton">—</span></div>
+      <table data-source="sites" data-row-key="vendedor" id="tab-sites">
+        <thead><tr><th data-field="vendedor">Site</th><th class="n" data-field="atual">Agora</th><th data-field="descricao">Melhor opção agora</th><th class="n" data-field="menor">Menor já visto</th><th data-field="menor_em">Quando</th><th>Passagem</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="mx-card" style="margin-top: var(--cds-gap-md)">
+      <h3>Opções das agências na última coleta</h3>
+      <p class="mx-note">As 12 combinações de ida e volta mais baratas vistas no MaxMilhas e na Decolar.</p>
+      <div class="mx-tablebox">
+        <table data-source="combos_atuais" data-row-key="chave" id="tab-combos">
+          <thead><tr><th data-field="vendedor">Site</th><th class="n" data-field="preco_total">Total</th><th data-field="ida">Ida 25/11</th><th data-field="volta">Volta 30/11</th><th data-field="obs">Obs.</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
-  <div class="card">
-    <p class="label">Menor preço já encontrado</p>
-    <p class="big" style="font-size:1.8rem" id="recorde">—</p>
-    <p class="note" id="recorde-quando"></p>
-    <svg id="grafico" width="100%" viewBox="0 0 600 180" role="img" aria-label="Evolução do menor preço"></svg>
-  </div>
+  <section id="resumo">
+    <h2>Menor preço encontrado (Google Voos)</h2>
+    <p class="mx-note">“Atual” é o menor preço da última coleta. Médio e maior consideram o menor preço de cada coleta (o valor que você pagaria naquele momento).</p>
+    <div class="mx-grid" id="cards"></div>
+  </section>
 
-  <p class="note" id="atualizado"></p>
-  <p class="note">Os preços são consultados automaticamente a cada hora no Google Voos (GOL), MaxMilhas e Decolar. Incluem mala de mão. O valor pode mudar na hora da compra; confira sempre no site antes de pagar.</p>
-</main>
+  <section id="alertas">
+    <h2>Alertas e oportunidade</h2>
+    <div class="mx-grid">
+      <div class="mx-card" id="card-alertas">
+        <h3>Alertas da última coleta</h3>
+        <div id="lista-alertas" data-source="resumo"><span class="dash-skeleton">—</span></div>
+      </div>
+      <div class="mx-card" id="card-indice">
+        <h3>Índice de oportunidade (total ida + volta)</h3>
+        <p class="mx-note">De 0 a 100. Os fatores abaixo mostram de onde veio cada ponto.</p>
+        <div class="mx-score" id="score" data-source="oportunidade"><span class="dash-skeleton">—</span></div>
+        <p class="mx-note" id="score-label"></p>
+        <table data-source="oportunidade" data-row-key="chave" id="tab-fatores">
+          <thead><tr><th data-field="fator">Fator</th><th data-field="detalhe">Situação</th><th class="n" data-field="pontos">Pontos</th><th class="n" data-field="max">Máx.</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="voos">
+    <h2>Melhor combinação data + horário + aeroporto + escalas</h2>
+    <p class="mx-note">Cada linha é um voo específico (mesmo horário, aeroportos e conexões). “Atual” é o preço na última coleta; vazio quando o voo não apareceu nela. Linhas esmaecidas ficam fora do filtro de horário.</p>
+    <div class="mx-card">
+      <div id="melhor-voo" class="mx-take" style="margin-top:0" data-source="voos"></div>
+      <div class="mx-tablebox">
+        <table data-source="voos" data-row-key="voo_id" id="tab-voos">
+          <thead><tr>
+            <th data-field="trecho">Trecho</th><th data-field="partida">Partida</th><th data-field="chegada">Chegada</th><th data-field="rota">Aeroportos</th><th data-field="conexoes">Conexões</th><th data-field="cia">Cia</th><th class="n" data-field="duracao_min">Duração</th><th class="n" data-field="menor">Menor</th><th class="n" data-field="atual">Atual</th><th class="n" data-field="medio">Médio</th><th class="n" data-field="vezes">Vezes visto</th><th>Passagem</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="horarios">
+    <h2>Horário mais barato para viajar</h2>
+    <div class="mx-grid">
+      <div class="mx-card">
+        <h3>Preço por faixa de horário de partida</h3>
+        <p class="mx-note">Todas as tarifas observadas, de todas as coletas (2 adultos, só um trecho).</p>
+        <div id="conclusao-faixa" class="mx-alert" data-source="faixas resumo"></div>
+        <table data-source="faixas" data-row-key="chave" id="tab-faixas">
+          <thead><tr><th data-field="trecho">Trecho</th><th data-field="faixa">Faixa</th><th class="n" data-field="menor">Menor</th><th class="n" data-field="medio">Médio</th><th class="n" data-field="n_ofertas">Nº ofertas</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="mx-card" id="card-scatter-hora">
+        <h3>Preço × horário do voo</h3>
+        <p class="mx-note">Cada ponto é uma tarifa encontrada. Eixo X: horário de partida.</p>
+        <div class="mx-legend" id="leg1"></div>
+        <div class="mx-chart" id="ch-hora" data-source="ofertas"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="evolucao">
+    <h2>Evolução do preço</h2>
+    <div class="mx-grid">
+      <div class="mx-card">
+        <h3>Preço × data da consulta</h3>
+        <p class="mx-note">Menor preço em cada coleta: ida, volta e total ida + volta.</p>
+        <div class="mx-legend" id="leg2"></div>
+        <div class="mx-chart" id="ch-serie" data-source="serie"></div>
+      </div>
+      <div class="mx-card">
+        <h3>Preço × data da consulta + horário do voo</h3>
+        <p class="mx-note">X: quando a tarifa foi vista. Y: horário de partida. Cor: preço (mais escuro = mais caro).</p>
+        <div class="mx-legend" id="leg3"></div>
+        <div class="mx-chart" id="ch-mapa" data-source="ofertas"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="momento">
+    <h2>Melhor momento para comprar</h2>
+    <div class="mx-card">
+      <div id="conclusao-momento" class="mx-alert" data-source="momento"></div>
+      <p class="mx-note">Total ida + volta (menor de cada coleta), agrupado pela hora da consulta e pela antecedência em relação à ida.</p>
+      <table data-source="momento" data-row-key="chave" id="tab-momento">
+        <thead><tr><th data-field="tipo">Análise</th><th data-field="grupo">Grupo</th><th class="n" data-field="menor">Menor total</th><th class="n" data-field="medio">Total médio</th><th class="n" data-field="n">Coletas</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="monitoramento">
+    <h2>Monitoramento contínuo</h2>
+    <div class="mx-card">
+      <p class="mx-note" id="saude" data-source="coletas"></p>
+      <div class="mx-tablebox">
+        <table data-source="coletas" data-row-key="coleta_id" id="tab-coletas">
+          <thead><tr><th data-field="coletado_em">Coleta</th><th data-field="status">Google</th><th class="n" data-field="ofertas_ida">Ofertas ida</th><th class="n" data-field="ofertas_volta">Ofertas volta</th><th data-field="maxmilhas">MaxMilhas</th><th data-field="decolar">Decolar</th><th data-field="alerta">Alerta enviado</th><th data-field="erro">Observação</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
 <script>
-const LINKS = {
-  'Google Voos (GOL)': 'https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=GIG&para=CKS&ida=25-11-2026&volta=30-11-2026&ADT=2&CHD=0&INF=0',
-  'MaxMilhas': 'https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/2026-11-25/2026-11-30/2/0/0/EC',
-  'Decolar': 'https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/2026-11-25/2026-11-30/2/0/0'
-};
-const NOME_SITE = { 'Google Voos (GOL)': 'GOL (site da companhia)', 'MaxMilhas': 'MaxMilhas', 'Decolar': 'Decolar' };
-const brl = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
-const quando = s => s.slice(8,10) + '/' + s.slice(5,7) + ' às ' + s.slice(11,16);
-const dur = m => Math.floor(m/60) + 'h' + (m%60 ? String(m%60).padStart(2,'0') : '');
-const desc = (cia, orig, part, cheg, mais, dest) => `${cia}, sai ${part} de ${orig === 'GIG' ? 'Galeão' : orig === 'SDU' ? 'Santos Dumont' : orig} e chega ${cheg}${mais ? ' do dia seguinte' : ''}`;
-async function carregar() {
-  const get = f => fetch('data/' + f + '?t=' + Date.now()).then(r => r.ok ? r.json() : []);
-  const [ofertas, combos, coletas] = await Promise.all([get('ofertas.json'), get('combos.json'), get('coletas.json')]);
-  // opções por coleta
-  const porColeta = new Map();
-  const add = (cid, o) => { if (!porColeta.has(cid)) porColeta.set(cid, []); porColeta.get(cid).push(o); };
-  const g = new Map();
-  for (const o of ofertas) {
-    const k = o.coleta_id; if (!g.has(k)) g.set(k, { ida: null, volta: null });
-    const x = g.get(k);
-    if (!x[o.sentido] || o.preco_total < x[o.sentido].preco_total) x[o.sentido] = o;
-  }
-  for (const [cid, x] of g) if (x.ida && x.volta) add(cid, { site: 'Google Voos (GOL)', preco: x.ida.preco_total + x.volta.preco_total,
-    ida: desc(x.ida.cia, x.ida.origem, x.ida.partida, x.ida.chegada, x.ida.chegada_mais_dias, 'CKS'),
-    volta: `${x.volta.cia}, sai ${x.volta.partida} de Carajás e chega ${x.volta.chegada}${x.volta.chegada_mais_dias ? ' do dia seguinte' : ''}`, em: cid });
-  for (const c of combos) add(c.coleta_id, { site: c.vendedor, preco: c.preco_total, obs: c.obs,
-    ida: desc(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias, 'CKS'),
-    volta: `${c.volta_cia}, sai ${c.volta_partida} de Carajás e chega ${c.volta_chegada}${c.volta_mais_dias ? ' do dia seguinte' : ''}`, em: c.coleta_id });
-  const ids = [...porColeta.keys()].sort((a, b) => new Date(a) - new Date(b));
-  if (!ids.length) { document.getElementById('m-preco').textContent = 'Sem dados ainda'; return; }
-  const ultima = ids[ids.length - 1];
-  const agora = porColeta.get(ultima).sort((a, b) => a.preco - b.preco);
-  const best = agora[0];
-  document.getElementById('m-preco').textContent = brl(best.preco);
-  const onde = document.getElementById('m-onde');
-  onde.replaceChildren();
-  const l1 = document.createElement('div'); l1.innerHTML = '<b>Onde:</b> '; l1.append(NOME_SITE[best.site] || best.site, best.obs ? ' (' + best.obs + ')' : '');
-  const l2 = document.createElement('div'); l2.innerHTML = '<b>Ida:</b> '; l2.append(best.ida);
-  const l3 = document.createElement('div'); l3.innerHTML = '<b>Volta:</b> '; l3.append(best.volta);
-  onde.append(l1, l2, l3);
-  const ml = document.getElementById('m-link'); ml.href = LINKS[best.site] || '#'; ml.textContent = 'Ver esta passagem em ' + (NOME_SITE[best.site] || best.site);
-  // por site
-  const sites = document.getElementById('sites'); sites.replaceChildren();
-  const vistos = new Set();
-  for (const o of agora) { if (vistos.has(o.site)) continue; vistos.add(o.site);
-    const r = document.createElement('div'); r.className = 'row';
-    const left = document.createElement('div');
-    const n = document.createElement('div'); n.className = 'name'; n.textContent = NOME_SITE[o.site] || o.site;
-    const i = document.createElement('div'); i.className = 'info'; i.textContent = 'Ida: ' + o.ida;
-    const a = document.createElement('a'); a.href = LINKS[o.site] || '#'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Abrir site';
-    left.append(n, i, a);
-    const p = document.createElement('div'); p.className = 'price'; p.textContent = brl(o.preco);
-    r.append(left, p); sites.append(r);
-  }
-  for (const s of Object.keys(LINKS)) if (!vistos.has(s)) { const r = document.createElement('div'); r.className = 'row';
-    const n = document.createElement('div'); n.className = 'name'; n.textContent = NOME_SITE[s];
-    const p = document.createElement('div'); p.className = 'info'; p.textContent = 'não consultado nesta hora';
-    r.append(n, p); sites.append(r); }
-  // recorde e gráfico
-  const serie = ids.map(id => ({ id, v: Math.min(...porColeta.get(id).map(o => o.preco)) }));
-  let rec = serie[0]; for (const s of serie) if (s.v < rec.v) rec = s;
-  document.getElementById('recorde').textContent = brl(rec.v);
-  const recSite = porColeta.get(rec.id).sort((a, b) => a.preco - b.preco)[0].site;
-  document.getElementById('recorde-quando').textContent = 'Visto em ' + quando(rec.id) + ' em ' + (NOME_SITE[recSite] || recSite) + (best.preco === rec.v ? ' · o preço de agora é igual ao menor já visto' : ' · agora está ' + brl(best.preco - rec.v) + ' mais caro');
-  const svg = document.getElementById('grafico'); svg.replaceChildren();
-  const W = 600, H = 180, P = 34; const vs = serie.map(s => s.v); const lo = Math.min(...vs) * 0.95, hi = Math.max(...vs) * 1.05;
-  const x = i => serie.length < 2 ? W / 2 : P + i * (W - 2 * P) / (serie.length - 1); const y = v => H - 24 - (v - lo) / (hi - lo || 1) * (H - 44);
-  const ns = 'http://www.w3.org/2000/svg'; const mk = (t, at) => { const e = document.createElementNS(ns, t); for (const k in at) e.setAttribute(k, at[k]); svg.append(e); return e; };
-  if (serie.length > 1) mk('polyline', { points: serie.map((s, i) => x(i) + ',' + y(s.v)).join(' '), fill: 'none', stroke: 'currentColor', 'stroke-width': 2.5, 'stroke-linejoin': 'round' });
-  serie.forEach((s, i) => mk('circle', { cx: x(i), cy: y(s.v), r: 3.5, fill: 'currentColor' }));
-  mk('text', { x: P, y: H - 4 }).textContent = quando(serie[0].id);
-  if (serie.length > 1) mk('text', { x: W - P, y: H - 4, 'text-anchor': 'end' }).textContent = quando(serie[serie.length - 1].id);
-  mk('text', { x: 0, y: y(Math.max(...vs)) - 6 }).textContent = brl(Math.max(...vs));
-  if (Math.max(...vs) !== Math.min(...vs)) mk('text', { x: 0, y: y(Math.min(...vs)) + 16 }).textContent = brl(Math.min(...vs));
-  const ok = coletas.filter(c => c.status === 'ok').length;
-  document.getElementById('atualizado').textContent = 'Última atualização: ' + quando(ultima) + ' · ' + ids.length + (ids.length === 1 ? ' consulta' : ' consultas') + ' registradas.';
-}
-carregar().catch(() => { document.getElementById('m-preco').textContent = 'Não foi possível carregar'; document.getElementById('m-preco').className = 'big err'; });
+/* ---------- Cálculos (cada um parte só dos dados coletados) ---------- */
+dash.calc('serie', {
+  title: 'Menor preço por coleta',
+  description: 'Para cada coleta: menor ida, menor volta e a soma das duas, com e sem o filtro 06:00–22:00.',
+  inputs: ['ofertas'],
+  fn: (ofertas) => {
+    const out = [];
+    for (const filtro of ['qualquer', '06-22']) {
+      const by = new Map();
+      for (const o of ofertas) {
+        const p = String(o.partida);
+        if (filtro === '06-22' && (p < '06:00' || p > '22:00')) continue;
+        const k = o.coleta_id;
+        if (!by.has(k)) by.set(k, { coletado_em: o.coletado_em, ida: null, volta: null });
+        const g = by.get(k), v = Number(o.preco_total);
+        if (o.sentido === 'ida' && (g.ida === null || v < g.ida)) g.ida = v;
+        if (o.sentido === 'volta' && (g.volta === null || v < g.volta)) g.volta = v;
+      }
+      for (const [k, g] of by) out.push({
+        chave: filtro + '|' + k, filtro, coleta_id: k, coletado_em: g.coletado_em,
+        min_ida: g.ida, min_volta: g.volta,
+        min_total: g.ida !== null && g.volta !== null ? g.ida + g.volta : null,
+      });
+    }
+    return out.sort((a, b) => new Date(a.coletado_em) - new Date(b.coletado_em));
+  },
+});
+
+dash.calc('resumo', {
+  title: 'Resumo por trecho',
+  description: 'Menor, segundo menor, médio, maior e atual (última coleta) por trecho; recorde comparado às coletas anteriores.',
+  inputs: ['serie', 'ofertas'],
+  fn: (serie, ofertas) => {
+    const out = [];
+    const descr = (o) => o ? `${o.partida} ${o.origem}→${o.destino} · ${o.escalas} ${Number(o.escalas) === 1 ? 'conexão' : 'conexões'}${o.conexoes ? ' (' + String(o.conexoes).replace(/,/g, ', ') + ')' : ''} · ${o.cia}` : '';
+    for (const filtro of ['qualquer', '06-22']) {
+      const rows = serie.filter((r) => r.filtro === filtro);
+      for (const seg of ['ida', 'volta', 'total']) {
+        const pts = rows.filter((r) => r['min_' + seg] !== null).map((r) => ({ v: Number(r['min_' + seg]), em: r.coletado_em, id: r.coleta_id }));
+        if (!pts.length) { out.push({ chave: filtro + '|' + seg, filtro, segmento: seg, n_coletas: 0 }); continue; }
+        const vals = pts.map((p) => p.v);
+        const menor = Math.min(...vals), maior = Math.max(...vals);
+        const medio = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const distintos = [...new Set(vals)].sort((a, b) => a - b);
+        const first = pts.find((p) => p.v === menor), last = pts[pts.length - 1];
+        const ant = pts.slice(0, -1).map((p) => p.v);
+        const menorAnt = ant.length ? Math.min(...ant) : null;
+        const ok = (o) => filtro === 'qualquer' || (String(o.partida) >= '06:00' && String(o.partida) <= '22:00');
+        const pick = (sent, id, v) => ofertas.find((o) => o.coleta_id === id && o.sentido === sent && Number(o.preco_total) === v && ok(o));
+        let voo = '';
+        if (seg === 'total') {
+          const r = rows.find((x) => x.coleta_id === first.id);
+          voo = 'Ida ' + descr(pick('ida', first.id, Number(r.min_ida))) + ' + Volta ' + descr(pick('volta', first.id, Number(r.min_volta)));
+        } else voo = descr(pick(seg, first.id, menor));
+        out.push({
+          chave: filtro + '|' + seg, filtro, segmento: seg, n_coletas: pts.length,
+          menor, menor_em: first.em, menor_voo: voo,
+          segundo_menor: distintos.length > 1 ? distintos[1] : null,
+          medio: Math.round(medio), maior, atual: last.v, atual_em: last.em,
+          variacao_pct: Math.round((last.v - menor) / menor * 1000) / 10,
+          dif_media_pct: Math.round((last.v - medio) / medio * 1000) / 10,
+          menor_anterior: menorAnt,
+          novo_recorde: menorAnt !== null && last.v < menorAnt,
+          economia: menorAnt !== null && last.v < menorAnt ? menorAnt - last.v : 0,
+        });
+      }
+    }
+    return out;
+  },
+});
+
+dash.calc('voos', {
+  title: 'Preço por voo específico',
+  description: 'Agrupa as tarifas pelo mesmo voo (trecho, horário, aeroportos e conexões): menor, médio, atual e quantas vezes apareceu.',
+  inputs: ['ofertas'],
+  fn: (ofertas) => {
+    const ultima = ofertas.reduce((m, o) => (!m || new Date(o.coletado_em) > new Date(m) ? o.coletado_em : m), null);
+    const by = new Map();
+    for (const o of ofertas) {
+      if (!by.has(o.voo_id)) by.set(o.voo_id, { o, vals: [], atual: null, visto: o.coletado_em });
+      const g = by.get(o.voo_id), v = Number(o.preco_total);
+      g.vals.push(v);
+      if (o.coletado_em === ultima) g.atual = g.atual === null ? v : Math.min(g.atual, v);
+      if (new Date(o.coletado_em) > new Date(g.visto)) g.visto = o.coletado_em;
+    }
+    return [...by].map(([id, g]) => ({
+      voo_id: id, sentido: g.o.sentido, trecho: (g.o.sentido === 'ida' ? 'Ida ' : 'Volta ') + String(g.o.data_voo).slice(8, 10) + '/' + String(g.o.data_voo).slice(5, 7),
+      partida: g.o.partida, chegada: g.o.chegada + (Number(g.o.chegada_mais_dias) ? ' +' + g.o.chegada_mais_dias : ''),
+      rota: g.o.origem + '→' + g.o.destino, conexoes: String(g.o.conexoes || '').replace(/,/g, ', '), escalas: Number(g.o.escalas), cia: g.o.cia,
+      duracao_min: Number(g.o.duracao_min), menor: Math.min(...g.vals), atual: g.atual,
+      medio: Math.round(g.vals.reduce((a, b) => a + b, 0) / g.vals.length), vezes: g.vals.length, visto_ultimo: g.visto,
+      no_filtro: String(g.o.partida) >= '06:00' && String(g.o.partida) <= '22:00',
+    })).sort((a, b) => a.sentido.localeCompare(b.sentido) || a.menor - b.menor || a.duracao_min - b.duracao_min);
+  },
+});
+
+dash.calc('faixas', {
+  title: 'Preço por faixa de horário',
+  description: 'Menor e médio preço de todas as tarifas vistas, por faixa de horário de partida (00–06, 06–12, 12–18, 18–24).',
+  inputs: ['ofertas'],
+  fn: (ofertas) => {
+    const faixas = ['00:00–05:59', '06:00–11:59', '12:00–17:59', '18:00–23:59'];
+    const out = [];
+    for (const sent of ['ida', 'volta']) faixas.forEach((f, i) => {
+      const vals = ofertas.filter((o) => o.sentido === sent && Math.floor(Number(String(o.partida).slice(0, 2)) / 6) === i).map((o) => Number(o.preco_total));
+      out.push({ chave: sent + '|' + i, sentido: sent, trecho: sent === 'ida' ? 'Ida' : 'Volta', faixa: f,
+        menor: vals.length ? Math.min(...vals) : null,
+        medio: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null,
+        n_ofertas: vals.length });
+    });
+    return out;
+  },
+});
+
+dash.calc('momento', {
+  title: 'Preço por momento da consulta',
+  description: 'Total ida + volta de cada coleta, agrupado pela hora da consulta e pelos dias que faltavam para a ida (25/11/2026).',
+  inputs: ['serie'],
+  fn: (serie) => {
+    const horas = ['00:00–05:59', '06:00–11:59', '12:00–17:59', '18:00–23:59'];
+    const ante = [['Mais de 30 dias', 31, 999], ['22 a 30 dias', 22, 30], ['15 a 21 dias', 15, 21], ['8 a 14 dias', 8, 14], ['Até 7 dias', 0, 7]];
+    const ida = Date.UTC(2026, 10, 25);
+    const out = [];
+    for (const filtro of ['qualquer', '06-22']) {
+      const rows = serie.filter((r) => r.filtro === filtro && r.min_total !== null);
+      const push = (tipo, grupo, ordem, vals) => out.push({ chave: filtro + '|' + tipo + '|' + ordem, filtro, tipo, grupo, ordem,
+        menor: vals.length ? Math.min(...vals) : null, medio: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null, n: vals.length });
+      horas.forEach((h, i) => push('Hora da consulta', h, i, rows.filter((r) => Math.floor(Number(String(r.coletado_em).slice(11, 13)) / 6) === i).map((r) => Number(r.min_total))));
+      ante.forEach(([g, a, b], i) => push('Antecedência', g, i, rows.filter((r) => {
+        const d = Math.round((ida - Date.UTC(+String(r.coletado_em).slice(0, 4), +String(r.coletado_em).slice(5, 7) - 1, +String(r.coletado_em).slice(8, 10))) / 864e5);
+        return d >= a && d <= b;
+      }).map((r) => Number(r.min_total))));
+    }
+    return out;
+  },
+});
+
+dash.calc('oportunidade', {
+  title: 'Índice de oportunidade',
+  description: 'Pontua o total atual: distância do menor histórico (40), da média (30), do maior (10), tamanho do histórico (10) e proximidade da viagem (10). Disponibilidade de assentos não vem da fonte.',
+  inputs: ['resumo'],
+  fn: (resumo) => {
+    const out = [];
+    const clamp = (x) => Math.max(0, Math.min(1, x));
+    const pct = (x) => (x > 0 ? '+' : '') + (Math.round(x * 1000) / 10).toFixed(1).replace('.', ',') + '%';
+    for (const filtro of ['qualquer', '06-22']) {
+      const r = resumo.find((x) => x.chave === filtro + '|total');
+      if (!r || !r.n_coletas) continue;
+      const dMin = (r.atual - r.menor) / r.menor, dMed = (r.medio - r.atual) / r.medio, dMax = (r.maior - r.atual) / r.maior;
+      const em = String(r.atual_em);
+      const dias = Math.round((Date.UTC(2026, 10, 25) - Date.UTC(+em.slice(0, 4), +em.slice(5, 7) - 1, +em.slice(8, 10))) / 864e5);
+      const f = [
+        ['Distância do menor histórico', pct(dMin) + ' vs menor', 40 * clamp(1 - dMin / 0.25), 40],
+        ['Distância da média', pct(-dMed) + ' vs média', 30 * clamp((dMed + 0.10) / 0.30), 30],
+        ['Desconto sobre o maior visto', pct(-dMax) + ' vs maior', 10 * clamp(dMax / 0.40), 10],
+        ['Tamanho do histórico', r.n_coletas + ' coletas', 10 * clamp(r.n_coletas / 48), 10],
+        ['Proximidade da viagem', dias + ' dias para a ida', 10 * clamp((45 - dias) / 45), 10],
+        ['Disponibilidade de assentos', 'Não informada pela fonte', 0, 0],
+      ];
+      let tot = 0;
+      f.forEach(([fator, detalhe, p, max], i) => { const pts = Math.round(p); tot += pts; out.push({ chave: filtro + '|' + i, filtro, fator, detalhe, pontos: pts, max }); });
+      out.push({ chave: filtro + '|total', filtro, fator: 'Total', detalhe: '', pontos: tot, max: 100 });
+    }
+    return out;
+  },
+});
+
+dash.calc('sites', {
+  title: 'Preço por site',
+  description: 'Menor ida + volta de cada site na última coleta em que ele respondeu e o menor já visto. Google Voos = ida mais barata + volta mais barata (GOL).',
+  inputs: ['serie', 'combos', 'ofertas'],
+  fn: (serie, combos, ofertas) => {
+    const lado = (cia, o, p, c, d) => `${cia} ${o} ${p}→${c}${Number(d) ? ' (+1 dia)' : ''}`;
+    const pts = [];
+    for (const r of serie) if (r.filtro === 'qualquer' && r.min_total !== null) {
+      const i = ofertas.filter((o) => o.coleta_id === r.coleta_id && o.sentido === 'ida' && Number(o.preco_total) === Number(r.min_ida))[0];
+      const v = ofertas.filter((o) => o.coleta_id === r.coleta_id && o.sentido === 'volta' && Number(o.preco_total) === Number(r.min_volta))[0];
+      pts.push({ vendedor: 'Google Voos (GOL)', em: r.coletado_em, preco: Number(r.min_total), descricao: i && v ? 'Ida ' + lado(i.cia, i.origem, i.partida, i.chegada, i.chegada_mais_dias) + ' · Volta ' + lado(v.cia, 'CKS', v.partida, v.chegada, v.chegada_mais_dias) : '', obs: '' });
+    }
+    for (const c of combos) pts.push({ vendedor: c.vendedor, em: c.coletado_em, preco: Number(c.preco_total),
+      descricao: 'Ida ' + lado(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias) + ' · Volta ' + lado(c.volta_cia, 'CKS', c.volta_partida, c.volta_chegada, c.volta_mais_dias), obs: c.obs || '' });
+    const out = [];
+    for (const vend of [...new Set(pts.map((p) => p.vendedor))]) {
+      const ps = pts.filter((p) => p.vendedor === vend);
+      const ult = ps.reduce((m, p) => (new Date(p.em) > new Date(m) ? p.em : m), ps[0].em);
+      const agora = ps.filter((p) => p.em === ult).sort((a, b) => a.preco - b.preco)[0];
+      const rec = [...ps].sort((a, b) => a.preco - b.preco || new Date(a.em) - new Date(b.em))[0];
+      out.push({ vendedor: vend, atual: agora.preco, atual_em: ult, descricao: agora.descricao, obs: agora.obs, menor: rec.preco, menor_em: rec.em });
+    }
+    return out.sort((a, b) => a.atual - b.atual);
+  },
+});
+
+dash.calc('combos_atuais', {
+  title: 'Opções das agências agora',
+  description: 'As 12 combinações mais baratas de MaxMilhas e Decolar na última coleta de cada site.',
+  inputs: ['combos'],
+  fn: (combos) => {
+    const ult = {};
+    for (const c of combos) if (!ult[c.vendedor] || new Date(c.coletado_em) > new Date(ult[c.vendedor])) ult[c.vendedor] = c.coletado_em;
+    const lado = (cia, o, p, c, d, dur) => `${cia} · ${o} ${p} → ${c}${Number(d) ? ' (+1 dia)' : ''} · ${Math.floor(dur / 60)}h${dur % 60 ? String(dur % 60).padStart(2, '0') : ''}`;
+    return combos.filter((c) => c.coletado_em === ult[c.vendedor]).sort((a, b) => a.preco_total - b.preco_total).slice(0, 12).map((c) => ({
+      chave: c.vendedor + '|' + c.combo_id + '|' + c.preco_total, vendedor: c.vendedor, preco_total: Number(c.preco_total),
+      ida: lado(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias, Number(c.ida_duracao_min)),
+      volta: lado(c.volta_cia, 'CKS', c.volta_partida, c.volta_chegada, c.volta_mais_dias, Number(c.volta_duracao_min)), obs: c.obs || '' }));
+  },
+});
 </script>
+
+<script>
+/* ---------- Desenho ---------- */
+const DEF = { filtro: 'qualquer', min_obs: 24 };
+const fBRL = (v) => (v === null || v === undefined || isNaN(v)) ? '—' : 'R$ ' + Math.round(Number(v)).toLocaleString('pt-BR');
+const fPct = (v) => (v === null || v === undefined || isNaN(v)) ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(1).replace('.', ',') + '%';
+const fDT = (s) => s ? String(s).slice(8, 10) + '/' + String(s).slice(5, 7) + ' às ' + String(s).slice(11, 16) : '—';
+const fDur = (m) => { m = Number(m); return Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''); };
+const params = () => ({ filtro: dash.params().filtro || DEF.filtro, min_obs: Math.max(3, Number(dash.params().min_obs) || DEF.min_obs) });
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+const failed = (ids) => ids.some((id) => dash.data(id).status === 'error');
+const ready = (ids) => ids.every((id) => dash.data(id).status === 'ok');
+const insuf = 'Ainda não há dados suficientes para determinar o horário ou período mais barato.';
+const URL_GOOGLE = 'https://www.google.com/travel/flights/search?tfs=CBwQAhojEgoyMDI2LTExLTI1agwIAhIIL20vMDZnbXJyBwgBEgNDS1MaIxIKMjAyNi0xMS0zMGoHCAESA0NLU3IMCAISCC9tLzA2Z21yQAFAAUgBcAGCAQsI____________AZgBAQ&hl=pt-BR&gl=BR&curr=BRL';
+const urlGol = (rio) => 'https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=' + (rio === 'SDU' ? 'SDU' : 'GIG') + '&para=CKS&ida=25-11-2026&volta=30-11-2026&ADT=2&CHD=0&INF=0';
+const link = (href, txt) => { const a = el('a', 'mx-link', txt); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; };
+const linkVoo = (r) => {
+  const rio = r.sentido === 'ida' ? String(r.rota || r.origem || '').slice(0, 3) : String(r.rota || r.destino || '').slice(-3);
+  return /gol/i.test(String(r.cia)) ? link(urlGol(rio), 'Ver na GOL') : link(URL_GOOGLE, 'Ver no Google Voos');
+};
+const linksPassagem = (rio) => { const p = el('div', 'mx-links'); p.append('Ver passagem:', link(urlGol(rio), 'GOL'), link(URL_GOOGLE, 'Google Voos')); return p; };
+
+const selF = document.querySelector('.mx-filtro');
+const inpM = document.querySelector('.mx-minobs');
+selF.addEventListener('change', () => dash.setParams({ filtro: selF.value }));
+inpM.addEventListener('change', () => { const v = Number(inpM.value); if (inpM.validity.valid && v >= 3) dash.setParams({ min_obs: v }); });
+inpM.addEventListener('blur', () => { inpM.value = params().min_obs; });
+document.querySelector('.mx-reset').addEventListener('click', () => dash.resetParams());
+const btnR = document.querySelector('.mx-refresh'), msgR = document.querySelector('.mx-refresh-msg');
+let pedidoR = false;
+btnR.addEventListener('click', () => {
+  pedidoR = true; btnR.disabled = true; msgR.textContent = 'Buscando a última coleta…';
+  dash.refresh('ofertas'); dash.refresh('coletas'); dash.refresh('combos');
+});
+const fimRefresh = () => {
+  if (!pedidoR) return;
+  const a = dash.data('ofertas'), b = dash.data('coletas');
+  if (a.refreshing || b.refreshing || a.status === 'loading' || b.status === 'loading') return;
+  pedidoR = false; btnR.disabled = false;
+  const h = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  msgR.textContent = (a.status === 'ok' && b.status === 'ok') ? 'Atualizado às ' + h + '.' : 'Não foi possível atualizar agora.';
+};
+
+const tip = (box) => { let t = box.querySelector('.mx-tip'); if (!t) { t = el('div', 'mx-tip'); t.hidden = true; box.appendChild(t); } return t; };
+const showTip = (box, t, x, y, lines) => {
+  t.replaceChildren(...lines.map((l, i) => el('div', i === 0 ? 'd' : '', l))); t.hidden = false;
+  const w = t.offsetWidth, bw = box.clientWidth;
+  t.style.left = Math.max(0, Math.min(bw - w, x + 12)) + 'px'; t.style.top = Math.max(0, y - 10 - t.offsetHeight) + 'px';
+};
+const legend = (id, items) => document.getElementById(id).replaceChildren(...items.map(([c, n]) => { const s = el('span'); const i = el('i'); i.style.background = c; s.append(i, n); return s; }));
+const axisClean = (g) => g.attr('font-size', null).attr('font-family', null).call((s) => s.selectAll('text').attr('fill', 'var(--color-fg-muted)').style('font-size', 'var(--cds-font-size-caption)')).call((s) => s.selectAll('line,path').attr('stroke', 'var(--cds-chart-axis)'));
+
+function setWhere(node, chave) { node.setAttribute('data-where', 'chave=' + chave); }
+
+function drawCards(p) {
+  const box = document.getElementById('cards');
+  box.replaceChildren();
+  const R = dash.data('resumo');
+  if (R.status !== 'ok') { const c = el('div', 'mx-card'); c.append(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('div', 'dash-skeleton', '—')); box.append(c); return; }
+  const nomes = { ida: 'Ida · qua 25/11', volta: 'Volta · seg 30/11', total: 'Total ida + volta' };
+  for (const seg of ['total', 'ida', 'volta']) {
+    const r = R.data.find((x) => x.chave === p.filtro + '|' + seg);
+    const c = el('div', 'mx-card'); c.id = 'card-' + seg;
+    c.append(el('h3', '', nomes[seg]));
+    if (!r || !r.n_coletas) { c.append(el('p', 'mx-note', 'Nenhuma tarifa nesta faixa de horário.')); box.append(c); continue; }
+    c.append(el('p', 'mx-note', 'Preço atual (' + fDT(r.atual_em) + ')'));
+    const big = el('div', 'mx-big', fBRL(r.atual)); big.dataset.source = 'resumo'; big.dataset.field = 'atual'; setWhere(big, r.chave); c.append(big);
+    const dl = el('dl', 'mx-kv');
+    const row = (lab, field, txt, cls) => { const dd = el('dd', cls || '', txt); dd.dataset.source = 'resumo'; dd.dataset.field = field; setWhere(dd, r.chave); dl.append(el('dt', '', lab), dd); };
+    row('Menor já encontrado', 'menor', fBRL(r.menor), 'mx-good');
+    row('Encontrado em', 'menor_em', fDT(r.menor_em));
+    row('Segundo menor', 'segundo_menor', r.segundo_menor === null ? 'ainda não houve' : fBRL(r.segundo_menor));
+    row('Preço médio', 'medio', fBRL(r.medio));
+    row('Maior preço', 'maior', fBRL(r.maior));
+    row('Variação atual vs menor', 'variacao_pct', fPct(r.variacao_pct), r.variacao_pct > 0 ? 'mx-warn' : 'mx-good');
+    row('Coletas', 'n_coletas', String(r.n_coletas));
+    c.append(dl);
+    const v = el('p', 'mx-note', 'Voo do menor preço: ' + r.menor_voo); v.dataset.source = 'resumo'; v.dataset.field = 'menor_voo'; setWhere(v, r.chave); v.style.marginTop = 'var(--cds-gap-sm)';
+    c.append(v);
+    box.append(c);
+  }
+}
+
+function drawAlertas(p) {
+  const box = document.getElementById('lista-alertas');
+  const R = dash.data('resumo');
+  if (R.status !== 'ok') { box.replaceChildren(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const out = [];
+  for (const seg of ['total', 'ida', 'volta']) {
+    const r = R.data.find((x) => x.chave === p.filtro + '|' + seg);
+    if (!r || !r.n_coletas) continue;
+    const nome = seg === 'total' ? 'Ida + volta' : seg === 'ida' ? 'Ida 25/11' : 'Volta 30/11';
+    if (r.novo_recorde) {
+      const a = el('div', 'mx-alert on'); a.append(el('div', 't', '🔔 NOVO MENOR PREÇO — ' + nome));
+      const d = el('div', '', 'Antes: ' + fBRL(r.menor_anterior) + ' · Agora: ' + fBRL(r.atual) + ' · Economia potencial: ' + fBRL(r.economia));
+      d.dataset.source = 'resumo'; d.dataset.field = 'economia'; setWhere(d, r.chave); a.append(d, linksPassagem('GIG')); out.push(a);
+    }
+    if (r.n_coletas >= p.min_obs && r.dif_media_pct <= -15) {
+      const a = el('div', 'mx-alert on'); a.append(el('div', 't', '🟢 BOA OPORTUNIDADE — ' + nome));
+      const d = el('div', '', 'Preço atual ' + fBRL(r.atual) + ' · média ' + fBRL(r.medio) + ' · diferença ' + fPct(r.dif_media_pct));
+      d.dataset.source = 'resumo'; d.dataset.field = 'dif_media_pct'; setWhere(d, r.chave); a.append(d, linksPassagem('GIG')); out.push(a);
+    }
+  }
+  const t = R.data.find((x) => x.chave === p.filtro + '|total');
+  if (!out.length) {
+    const a = el('div', 'mx-alert');
+    a.textContent = t && t.n_coletas < 2 ? 'Primeira coleta registrada: os alertas comparam cada nova coleta com o histórico.'
+      : 'Nenhum alerta na última coleta: o preço não bateu o recorde' + (t && t.n_coletas >= p.min_obs ? ' nem ficou 15% abaixo da média.' : '. O alerta de oportunidade só é avaliado a partir de ' + p.min_obs + ' coletas.');
+    out.push(a);
+  }
+  box.replaceChildren(...out);
+}
+
+function drawIndice(p) {
+  const O = dash.data('oportunidade'), R = dash.data('resumo');
+  const score = document.getElementById('score'), lab = document.getElementById('score-label');
+  const tb = document.querySelector('#tab-fatores tbody');
+  if (O.status !== 'ok' || R.status !== 'ok') { score.replaceChildren(el('span', 'dash-skeleton', '—')); tb.replaceChildren(); lab.textContent = ''; return; }
+  const rows = O.data.filter((r) => r.filtro === p.filtro);
+  const t = R.data.find((x) => x.chave === p.filtro + '|total');
+  const tot = rows.find((r) => r.fator === 'Total');
+  if (t && t.n_coletas >= p.min_obs && tot) {
+    score.textContent = tot.pontos + '/100';
+    score.dataset.field = 'pontos'; setWhere(score, tot.chave);
+    const n = tot.pontos;
+    lab.textContent = n >= 85 ? 'EXCELENTE OPORTUNIDADE' : n >= 70 ? 'BOA OPORTUNIDADE' : n >= 50 ? 'PREÇO RAZOÁVEL' : 'PREÇO POUCO VANTAJOSO';
+    lab.className = 'mx-note ' + (n >= 70 ? 'mx-good' : n >= 50 ? '' : 'mx-warn');
+  } else {
+    score.textContent = '—'; score.removeAttribute('data-field'); score.removeAttribute('data-where');
+    lab.className = 'mx-note';
+    lab.textContent = 'Índice exibido a partir de ' + p.min_obs + ' coletas (há ' + (t ? t.n_coletas : 0) + '). Os fatores já aparecem abaixo.';
+  }
+  tb.replaceChildren(...rows.filter((r) => r.fator !== 'Total').map((r) => {
+    const tr = el('tr'); tr.dataset.key = r.chave;
+    tr.append(el('td', '', r.fator), el('td', '', r.detalhe), el('td', 'n', String(r.pontos)), el('td', 'n', String(r.max)));
+    return tr;
+  }));
+}
+
+function drawVoos(p) {
+  const V = dash.data('voos'); const tb = document.querySelector('#tab-voos tbody'); const best = document.getElementById('melhor-voo');
+  if (V.status !== 'ok') { tb.replaceChildren(); best.replaceChildren(failed(['ofertas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const inF = (r) => p.filtro === 'qualquer' || r.no_filtro;
+  const bestOf = (s) => V.data.filter((r) => r.sentido === s && inF(r)).sort((a, b) => a.menor - b.menor || a.duracao_min - b.duracao_min)[0];
+  const bi = bestOf('ida'), bv = bestOf('volta');
+  const parts = [el('div', 't', '🏆 MELHOR OPÇÃO ENCONTRADA')];
+  for (const b of [bi, bv]) if (b) {
+    const d = el('div', '', b.trecho + ' — ' + b.partida + ' — ' + b.rota + (b.conexoes ? ' via ' + b.conexoes : '') + ' — ' + fDur(b.duracao_min) + ' — ' + fBRL(b.menor));
+    d.dataset.source = 'voos'; d.dataset.field = 'menor'; d.dataset.where = 'voo_id=' + encodeURIComponent(b.voo_id).replace(/%7C/g, '|').replace(/%3A/g, ':').replace(/%2C/g, ','); parts.push(d);
+  }
+  parts.push(linksPassagem(bi ? String(bi.rota).slice(0, 3) : 'GIG'));
+  best.className = 'mx-alert on'; best.replaceChildren(...parts);
+  tb.replaceChildren(...V.data.map((r) => {
+    const tr = el('tr', (r === bi || r === bv ? 'best' : '') + (inF(r) ? '' : ' dim')); tr.dataset.key = r.voo_id;
+    tr.append(el('td', '', r.trecho), el('td', '', r.partida), el('td', '', r.chegada), el('td', '', r.rota), el('td', '', r.conexoes || 'direto'), el('td', '', r.cia),
+      el('td', 'n', fDur(r.duracao_min)), el('td', 'n', fBRL(r.menor)), el('td', 'n', r.atual === null ? '' : fBRL(r.atual)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.vezes)));
+    const tdL = el('td'); tdL.append(linkVoo(r)); tr.append(tdL);
+    return tr;
+  }));
+}
+
+function drawFaixas(p) {
+  const F = dash.data('faixas'), R = dash.data('resumo'); const tb = document.querySelector('#tab-faixas tbody'); const c = document.getElementById('conclusao-faixa');
+  if (F.status !== 'ok' || R.status !== 'ok') { tb.replaceChildren(); c.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
+  tb.replaceChildren(...F.data.filter((r) => r.n_ofertas > 0).map((r) => {
+    const tr = el('tr'); tr.dataset.key = r.chave;
+    tr.append(el('td', '', r.trecho), el('td', '', r.faixa), el('td', 'n', fBRL(r.menor)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.n_ofertas)));
+    return tr;
+  }));
+  const t = R.data.find((x) => x.chave === 'qualquer|total');
+  const n = t ? t.n_coletas : 0;
+  if (n < p.min_obs) { c.className = 'mx-alert'; c.textContent = insuf + ' (' + n + ' de ' + p.min_obs + ' coletas.)'; return; }
+  const lines = [];
+  for (const s of ['ida', 'volta']) {
+    const fs = F.data.filter((r) => r.sentido === s && r.n_ofertas >= 3);
+    if (fs.length < 2) { lines.push((s === 'ida' ? 'Ida' : 'Volta') + ': só há voos em uma faixa de horário, não há o que comparar.'); continue; }
+    const b = fs.reduce((a, r) => (r.medio < a.medio ? r : a)), w = fs.reduce((a, r) => (r.medio > a.medio ? r : a));
+    lines.push('🟢 ' + (s === 'ida' ? 'Ida' : 'Volta') + ': horário com melhor preço ' + b.faixa + ' (média ' + fBRL(b.medio) + '). Voos de ' + w.faixa + ' custam, em média, ' + fPct((w.medio - b.medio) / b.medio * 100).replace('+', '') + ' a mais.');
+  }
+  c.className = 'mx-alert on'; c.replaceChildren(...lines.map((l) => el('div', '', l)));
+}
+
+function drawMomento(p) {
+  const M = dash.data('momento'); const tb = document.querySelector('#tab-momento tbody'); const c = document.getElementById('conclusao-momento');
+  if (M.status !== 'ok') { tb.replaceChildren(); c.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
+  const rows = M.data.filter((r) => r.filtro === p.filtro && r.n > 0);
+  tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.chave; tr.append(el('td', '', r.tipo), el('td', '', r.grupo), el('td', 'n', fBRL(r.menor)), el('td', 'n', fBRL(r.medio)), el('td', 'n', String(r.n))); return tr; }));
+  const tot = rows.filter((r) => r.tipo === 'Hora da consulta').reduce((a, r) => a + r.n, 0);
+  const minG = Math.max(3, Math.ceil(p.min_obs / 4));
+  const lines = [];
+  for (const tipo of ['Hora da consulta', 'Antecedência']) {
+    const g = rows.filter((r) => r.tipo === tipo && r.n >= minG);
+    if (tot < p.min_obs || g.length < 2) continue;
+    const b = g.reduce((a, r) => (r.medio < a.medio ? r : a)), w = g.reduce((a, r) => (r.medio > a.medio ? r : a));
+    if (b.medio === w.medio) { lines.push(tipo + ': os preços médios não variaram entre os grupos observados.'); continue; }
+    lines.push(tipo === 'Hora da consulta'
+      ? 'Consultas feitas entre ' + b.grupo + ' encontraram o total médio mais baixo (' + fBRL(b.medio) + ', ' + b.n + ' coletas), ' + fPct((w.medio - b.medio) / b.medio * 100).replace('+', '') + ' abaixo de ' + w.grupo + '.'
+      : 'O menor total médio apareceu com ' + b.grupo.toLowerCase() + ' de antecedência (' + fBRL(b.medio) + ', ' + b.n + ' coletas).');
+  }
+  if (!lines.length) { c.className = 'mx-alert'; c.textContent = insuf + ' (' + tot + ' coletas; cada grupo comparado precisa de pelo menos ' + minG + '.)'; }
+  else { c.className = 'mx-alert on'; c.replaceChildren(...lines.map((l) => el('div', '', l))); }
+}
+
+function drawColetas() {
+  const C = dash.data('coletas'); const tb = document.querySelector('#tab-coletas tbody'); const s = document.getElementById('saude');
+  if (C.status !== 'ok') { tb.replaceChildren(); s.replaceChildren(failed(['coletas']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const rows = [...C.data].sort((a, b) => new Date(b.coletado_em) - new Date(a.coletado_em));
+  const ok = rows.filter((r) => r.status === 'ok').length;
+  s.textContent = 'Busca automática a cada hora pelo navegador do app Claude no seu computador. ' + rows.length + ' coletas registradas (' + ok + ' com sucesso, ' + (rows.length - ok) + ' com falha). Última: ' + (rows[0] ? fDT(rows[0].coletado_em) : '—') + '.';
+  tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.coleta_id;
+    const stc = (s) => el('td', s === 'falha' ? 'mx-bad' : '', s === 'ok' ? 'ok' : s === 'falha' ? 'falha' : '—');
+    tr.append(el('td', '', fDT(r.coletado_em)), stc(r.status), el('td', 'n', String(r.ofertas_ida)), el('td', 'n', String(r.ofertas_volta)), stc(r.maxmilhas || ''), stc(r.decolar || ''), el('td', '', r.alerta || ''), el('td', '', r.erro || ''));
+    return tr; }));
+}
+
+const URL_SITE = { 'MaxMilhas': 'https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/2026-11-25/2026-11-30/2/0/0/EC', 'Decolar': 'https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/2026-11-25/2026-11-30/2/0/0' };
+const linkSite = (v) => URL_SITE[v] ? link(URL_SITE[v], 'Ver no ' + v) : link(urlGol('GIG'), 'Ver na GOL');
+function drawSites() {
+  const S = dash.data('sites'), K = dash.data('combos_atuais');
+  const tb = document.querySelector('#tab-sites tbody'), best = document.getElementById('melhor-site'), tc = document.querySelector('#tab-combos tbody');
+  if (S.status !== 'ok') { tb.replaceChildren(); tc.replaceChildren(); best.replaceChildren(failed(['combos']) ? el('div', 'mx-fail', 'Failed to load') : el('span', 'dash-skeleton', '—')); return; }
+  const rows = S.data;
+  if (rows.length) {
+    const b = rows[0], g = rows.find((r) => r.vendedor === 'Google Voos (GOL)');
+    const t = el('div', 't', '🏆 Mais barato agora: ' + b.vendedor + ' — ' + fBRL(b.atual) + (b.obs ? ' (' + b.obs + ')' : ''));
+    t.dataset.source = 'sites'; t.dataset.field = 'atual'; t.dataset.where = 'vendedor=' + b.vendedor;
+    const d = el('div', '', b.descricao);
+    const parts = [t, d];
+    if (g && g !== b) parts.push(el('div', 'mx-note', 'Economia de ' + fBRL(g.atual - b.atual) + ' em relação à GOL pelo Google Voos.'));
+    const lk = el('div', 'mx-links'); lk.append(linkSite(b.vendedor)); parts.push(lk);
+    best.replaceChildren(...parts);
+  }
+  tb.replaceChildren(...rows.map((r) => { const tr = el('tr'); tr.dataset.key = r.vendedor;
+    const tdl = el('td'); tdl.append(linkSite(r.vendedor));
+    tr.append(el('td', '', r.vendedor), el('td', 'n', fBRL(r.atual)), el('td', '', r.descricao + (r.obs ? ' · ' + r.obs : '')), el('td', 'n', fBRL(r.menor)), el('td', '', fDT(r.menor_em)), tdl);
+    return tr; }));
+  if (K.status === 'ok') tc.replaceChildren(...K.data.map((r) => { const tr = el('tr'); tr.dataset.key = r.chave;
+    tr.append(el('td', '', r.vendedor), el('td', 'n', fBRL(r.preco_total)), el('td', '', r.ida), el('td', '', r.volta), el('td', '', r.obs)); return tr; }));
+}
+
+function drawTake(p) {
+  const T = document.getElementById('takeaway'); const R = dash.data('resumo');
+  if (R.status !== 'ok') { T.replaceChildren(el('span', 'dash-skeleton', '—')); return; }
+  const t = R.data.find((x) => x.chave === p.filtro + '|total');
+  if (!t || !t.n_coletas) { T.textContent = 'Nenhuma combinação de ida e volta nesta faixa de horário.'; return; }
+  const rel = t.atual === t.menor ? 'igual ao menor já visto' : fPct(t.variacao_pct) + ' acima do menor (' + fBRL(t.menor) + ' em ' + fDT(t.menor_em) + ')';
+  const SS = dash.data('sites'); const bs = SS.status === 'ok' && SS.data.length ? SS.data[0] : null;
+  T.textContent = (bs ? 'Mais barato agora entre os sites: ' + fBRL(bs.atual) + ' no ' + bs.vendedor + '. ' : '') + 'GOL pelo Google Voos: ' + fBRL(t.atual) + ', ' + rel + '. ' + t.n_coletas + (t.n_coletas === 1 ? ' coleta registrada' : ' coletas registradas') +
+    (t.n_coletas < p.min_obs ? '; padrões de horário e de momento de compra aparecem a partir de ' + p.min_obs + '.' : '.');
+}
+
+function drawHora(p) {
+  const box = document.getElementById('ch-hora'); const O = dash.data('ofertas');
+  box.querySelectorAll('svg,.mx-fail').forEach((n) => n.remove());
+  const cols = { ida: dash.colors[0], volta: dash.colors[1] };
+  legend('leg1', [[cols.ida, 'Ida 25/11'], [cols.volta, 'Volta 30/11']]);
+  if (O.status !== 'ok') { if (O.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
+  const pts = O.data.map((o) => ({ ...o, h: Number(String(o.partida).slice(0, 2)) + Number(String(o.partida).slice(3, 5)) / 60, v: Number(o.preco_total) }))
+    .filter((o) => p.filtro === 'qualquer' || (o.partida >= '06:00' && o.partida <= '22:00'));
+  const W = box.clientWidth, H = 260;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const yMax = d3.max(pts, (d) => d.v) || 1, yMin = d3.min(pts, (d) => d.v) || 0;
+  const y = d3.scaleLinear([Math.max(0, yMin * 0.9), yMax * 1.05], [H - 24, 10]).nice();
+  const gy = svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat((v) => 'R$ ' + d3.format(',')(v).replace(/,/g, '.')));
+  axisClean(gy); let ml = 0; gy.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); }); ml += 14;
+  gy.attr('transform', `translate(${ml},0)`);
+  const x = d3.scaleLinear([0, 24], [ml + 6, W - 8]);
+  svg.append('g').attr('transform', `translate(0,${H - 24})`).call(d3.axisBottom(x).tickValues(W < 420 ? [0, 6, 12, 18, 24] : d3.range(0, 25, 3)).tickFormat((v) => String(v).padStart(2, '0') + 'h')).call(axisClean);
+  svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', ml).attr('x2', W - 8).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+  const t = tip(box);
+  svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', (d) => x(d.h)).attr('cy', (d) => y(d.v)).attr('r', 5)
+    .attr('fill', (d) => cols[d.sentido]).attr('fill-opacity', 0.55).attr('stroke', (d) => cols[d.sentido])
+    .on('mousemove', (e, d) => { const [mx, my] = d3.pointer(e, box); showTip(box, t, mx, my, [fDT(d.coletado_em), (d.sentido === 'ida' ? 'Ida ' : 'Volta ') + d.partida + ' ' + d.origem + '→' + d.destino, (d.conexoes ? 'via ' + String(d.conexoes).replace(/,/g, ', ') + ' · ' : '') + fDur(d.duracao_min), fBRL(d.v)]); })
+    .on('mouseleave', () => { t.hidden = true; });
+}
+
+function drawSerie(p) {
+  const box = document.getElementById('ch-serie'); const S = dash.data('serie');
+  box.querySelectorAll('svg,.mx-fail,.mx-note').forEach((n) => n.remove());
+  const ser = [['min_total', 'Total', dash.colors[2]], ['min_ida', 'Ida', dash.colors[0]], ['min_volta', 'Volta', dash.colors[1]]];
+  legend('leg2', ser.map(([, n, c]) => [c, n]));
+  if (S.status !== 'ok') { if (S.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
+  const rows = S.data.filter((r) => r.filtro === p.filtro).map((r) => ({ ...r, d: new Date(r.coletado_em) }));
+  const W = box.clientWidth, H = 260;
+  if (rows.length < 2) box.append(el('p', 'mx-note', 'A linha aparece a partir da segunda coleta; por enquanto há ' + rows.length + '.'));
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const vals = rows.flatMap((r) => ser.map(([k]) => r[k]).filter((v) => v !== null)).map(Number);
+  if (!vals.length) return;
+  const y = d3.scaleLinear([0, d3.max(vals) * 1.08], [H - 24, 10]).nice();
+  const gy = svg.append('g').call(d3.axisLeft(y).ticks(5).tickFormat((v) => 'R$ ' + d3.format(',')(v).replace(/,/g, '.')));
+  axisClean(gy); let ml = 0; gy.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); }); ml += 14;
+  gy.attr('transform', `translate(${ml},0)`);
+  const ext = d3.extent(rows, (r) => r.d); if (+ext[0] === +ext[1]) { ext[0] = new Date(+ext[0] - 36e5); ext[1] = new Date(+ext[1] + 36e5); }
+  const x = d3.scaleTime(ext, [ml + 6, W - 46]);
+  svg.append('g').attr('transform', `translate(0,${H - 24})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - ml) / 110))).tickFormat(d3.timeFormat('%d/%m %Hh'))).call(axisClean);
+  svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', ml).attr('x2', W - 46).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+  const ends = [];
+  for (const [k, n, c] of ser) {
+    const d = rows.filter((r) => r[k] !== null);
+    svg.append('path').datum(d).attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+      .attr('d', d3.line().x((r) => x(r.d)).y((r) => y(Number(r[k]))));
+    svg.append('g').selectAll('circle').data(d).join('circle').attr('cx', (r) => x(r.d)).attr('cy', (r) => y(Number(r[k]))).attr('r', 3).attr('fill', c);
+    if (d.length) ends.push({ x: x(d[d.length - 1].d) + 6, y: y(Number(d[d.length - 1][k])) + 4, c, n });
+  }
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  const over = ends.length ? Math.max(0, ends[ends.length - 1].y - (H - 28)) : 0;
+  for (const e of ends) svg.append('text').attr('x', e.x).attr('y', e.y - over).attr('fill', e.c).style('font-size', 'var(--cds-font-size-caption)').text(e.n);
+  const t = tip(box);
+  const rule = svg.append('line').attr('y1', 10).attr('y2', H - 24).attr('stroke', 'var(--cds-chart-reference)').style('display', 'none');
+  svg.append('rect').attr('x', ml).attr('y', 0).attr('width', W - ml).attr('height', H).attr('fill', 'transparent')
+    .on('mousemove', (e) => { const [mx, my] = d3.pointer(e, box); const dt = x.invert(mx); const r = rows.reduce((a, b) => (Math.abs(b.d - dt) < Math.abs(a.d - dt) ? b : a));
+      rule.attr('x1', x(r.d)).attr('x2', x(r.d)).style('display', null);
+      showTip(box, t, mx, my, [fDT(r.coletado_em), 'Total ' + fBRL(r.min_total), 'Ida ' + fBRL(r.min_ida), 'Volta ' + fBRL(r.min_volta)]); })
+    .on('mouseleave', () => { t.hidden = true; rule.style('display', 'none'); });
+}
+
+function drawMapa(p) {
+  const box = document.getElementById('ch-mapa'); const O = dash.data('ofertas');
+  box.querySelectorAll('svg,.mx-fail').forEach((n) => n.remove());
+  const cs = getComputedStyle(document.getElementById('dash-root'));
+  const c0 = cs.getPropertyValue('--cds-chart-muted').trim() || '#ccc', c1 = getComputedStyle(box).color;
+  if (O.status !== 'ok') { legend('leg3', []); if (O.status === 'error') box.append(el('div', 'mx-fail', 'Failed to load')); return; }
+  const pts = O.data.map((o) => ({ ...o, d: new Date(o.coletado_em), h: Number(String(o.partida).slice(0, 2)) + Number(String(o.partida).slice(3, 5)) / 60, v: Number(o.preco_total) }))
+    .filter((o) => p.filtro === 'qualquer' || (o.partida >= '06:00' && o.partida <= '22:00'));
+  const [vmin, vmax] = d3.extent(pts, (d) => d.v);
+  const col = d3.scaleLinear([vmin, vmax === vmin ? vmin + 1 : vmax], [0, 1]).clamp(true);
+  const ramp = d3.interpolateRgb(c0, c1);
+  legend('leg3', [[ramp(0), 'mais barato ' + fBRL(vmin)], [ramp(1), 'mais caro ' + fBRL(vmax)]]);
+  const W = box.clientWidth, H = 260;
+  const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+  const y = d3.scaleLinear([0, 24], [H - 24, 10]);
+  const gy = svg.append('g').call(d3.axisLeft(y).tickValues([0, 6, 12, 18, 24]).tickFormat((v) => String(v).padStart(2, '0') + 'h'));
+  axisClean(gy); let ml = 0; gy.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); }); ml += 14;
+  gy.attr('transform', `translate(${ml},0)`);
+  const ext = d3.extent(pts, (r) => r.d); if (+ext[0] === +ext[1]) { ext[0] = new Date(+ext[0] - 36e5); ext[1] = new Date(+ext[1] + 36e5); }
+  const x = d3.scaleTime(ext, [ml + 8, W - 10]);
+  svg.append('g').attr('transform', `translate(0,${H - 24})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor((W - ml) / 110))).tickFormat(d3.timeFormat('%d/%m %Hh'))).call(axisClean);
+  svg.append('g').selectAll('line').data([6, 12, 18]).join('line').attr('x1', ml).attr('x2', W - 10).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+  const t = tip(box);
+  svg.append('g').selectAll('rect').data(pts).join('rect').attr('x', (d) => x(d.d) - 4).attr('y', (d) => y(d.h) - 4).attr('width', 8).attr('height', 8).attr('rx', 2)
+    .attr('fill', (d) => ramp(col(d.v)))
+    .on('mousemove', (e, d) => { const [mx, my] = d3.pointer(e, box); showTip(box, t, mx, my, [fDT(d.coletado_em), (d.sentido === 'ida' ? 'Ida ' : 'Volta ') + d.partida + ' ' + d.origem + '→' + d.destino, fBRL(d.v)]); })
+    .on('mouseleave', () => { t.hidden = true; });
+}
+
+dash.onData(() => {
+  const p = params();
+  selF.value = p.filtro;
+  if (inpM !== document.activeElement) inpM.value = p.min_obs;
+  fimRefresh();
+  drawSites();
+  drawTake(p); drawCards(p); drawAlertas(p); drawIndice(p); drawVoos(p); drawFaixas(p); drawHora(p); drawSerie(p); drawMapa(p); drawMomento(p); drawColetas();
+});
+</script>
+
+</div>
 </body>
 </html>
