@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Monitor RIO → Carajás</title>
+<link rel="icon" href="data:,">
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
 :root {
@@ -30,6 +31,9 @@ html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); fon
 .dash-skeleton { display: inline-block; min-width: 6rem; height: 1em; border-radius: 6px; background: var(--color-border-line); color: transparent; }
 .site-top { display: flex; justify-content: flex-end; font-size: 13px; margin-bottom: 6px; }
 .site-top a { color: var(--color-fg-muted); }
+.mx-card { overflow-x: auto; }
+#tab-sites td:nth-child(3), #tab-combos td:nth-child(3), #tab-combos td:nth-child(4), #tab-coletas td:nth-child(7) { white-space: normal; min-width: 12rem; }
+
 </style>
 <script>
 (function () {
