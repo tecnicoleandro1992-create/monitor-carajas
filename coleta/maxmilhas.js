@@ -1,4 +1,4 @@
-await new Promise(r=>setTimeout(r,6000));
+{ const t0=Date.now(); while(!document.body.innerText.includes('Valor total') && Date.now()-t0<30000) await new Promise(r=>setTimeout(r,1000)); await new Promise(r=>setTimeout(r,1500)); }
 const toMin=s=>{const h=(s.match(/(\d+)h/)||[0,0])[1], m=(s.match(/h(\d+)m|^(\d+)m/)||[0,0,0]); return (+h)*60+(+(m[1]||m[2]||0));};
 const leg=(s)=>{ if(!s) return null; const L=s.split('\n').map(x=>x.trim()).filter(Boolean);
   const codes=L.filter(x=>/^[A-Z]{3}$/.test(x)); const times=L.filter(x=>/^\d\d:\d\d$/.test(x));

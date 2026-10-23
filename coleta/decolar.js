@@ -1,4 +1,4 @@
-await new Promise(r=>setTimeout(r,7000));
+{ const t0=Date.now(); while(!document.body.innerText.includes('Preço final') && Date.now()-t0<30000) await new Promise(r=>setTimeout(r,1000)); await new Promise(r=>setTimeout(r,1500)); }
 const t=document.body.innerText;
 const blocks=t.split(/Despegar Catalog/).slice(1);
 const toMin=s=>{const h=(s.match(/(\d+)h/)||[0,0])[1], m=(s.match(/(\d+)m/)||[0,0])[1]; return (+h)*60+(+m);};

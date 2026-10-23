@@ -1,4 +1,4 @@
-await new Promise(r=>setTimeout(r,6000));
+{ const t0=Date.now(); while(!document.body.innerText.includes('Selecionar voo') && Date.now()-t0<30000) await new Promise(r=>setTimeout(r,1000)); await new Promise(r=>setTimeout(r,1500)); }
 { const b=[...document.querySelectorAll('button')].find(x=>x.innerText.includes('Mostrar mais voos')); if(b){b.click(); await new Promise(r=>setTimeout(r,3500));} }
 const toMin=s=>{const h=(s.match(/(\d+)\s*h/)||[0,0])[1], m=(s.match(/(\d+)\s*min/)||[0,0])[1]; return (+h)*60+(+m);};
 const rows=[]; const seen=new Set();
