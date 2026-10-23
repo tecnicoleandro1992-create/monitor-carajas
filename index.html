@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passagens Rio → Carajás</title>
+<style>
+  :root { --bg:#f6f4ef; --card:#ffffff; --fg:#1d1b18; --muted:#6b6560; --line:#e4dfd6; --good:#1f7a3f; --accent:#c4552d; --btn:#1d4e89; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1b1a18; --card:#262421; --fg:#f2efe9; --muted:#b3ada4; --line:#3a3733; --good:#5cc483; --accent:#e58a63; --btn:#5b9be0; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size:18px; line-height:1.45; }
+  main { max-width: 640px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin: 14px 0; }
+  .label { color: var(--muted); font-size: .95rem; margin: 0; }
+  .big { font-size: 2.6rem; font-weight: 700; margin: 4px 0; font-variant-numeric: tabular-nums; }
+  .good { color: var(--good); }
+  .detail { margin: 6px 0 14px; }
+  a.btn { display: block; text-align: center; background: var(--btn); color: #fff; text-decoration: none; font-weight: 700; padding: 14px; border-radius: 10px; font-size: 1.1rem; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .row:first-of-type { border-top: 0; }
+  .row .name { font-weight: 700; }
+  .row .price { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row .info { color: var(--muted); font-size: .9rem; }
+  .row a { color: var(--btn); font-weight: 700; }
+  .note { color: var(--muted); font-size: .9rem; }
+  svg text { fill: var(--muted); font-size: 12px; }
+  .err { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Passagens Rio → Carajás</h1>
+  <p class="sub">Ida <b>quarta, 25/11</b> · Volta <b>segunda, 30/11</b> · <b>2 pessoas</b> · preço total, ida e volta</p>
+
+  <div class="card" id="melhor">
+    <p class="label">Menor preço agora</p>
+    <p class="big good" id="m-preco">carregando…</p>
+    <p class="detail" id="m-onde"></p>
+    <a class="btn" id="m-link" href="#" target="_blank" rel="noopener">Ver esta passagem</a>
+  </div>
+
+  <div class="card">
+    <p class="label">Preço em cada site agora</p>
+    <div id="sites"></div>
+  </div>
+
+  <div class="card">
+    <p class="label">Menor preço já encontrado</p>
+    <p class="big" style="font-size:1.8rem" id="recorde">—</p>
+    <p class="note" id="recorde-quando"></p>
+    <svg id="grafico" width="100%" viewBox="0 0 600 180" role="img" aria-label="Evolução do menor preço"></svg>
+  </div>
+
+  <p class="note" id="atualizado"></p>
+  <p class="note">Os preços são consultados automaticamente a cada hora no Google Voos (GOL), MaxMilhas e Decolar. Incluem mala de mão. O valor pode mudar na hora da compra; confira sempre no site antes de pagar.</p>
+</main>
+<script>
+const LINKS = {
+  'Google Voos (GOL)': 'https://b2c.voegol.com.br/compra/busca-parceiros?pv=br&tipo=RT&de=GIG&para=CKS&ida=25-11-2026&volta=30-11-2026&ADT=2&CHD=0&INF=0',
+  'MaxMilhas': 'https://www.maxmilhas.com.br/busca-passagens-aereas/RT/RIO/CKS/2026-11-25/2026-11-30/2/0/0/EC',
+  'Decolar': 'https://www.decolar.com/shop/flights/results/roundtrip/rio/cks/2026-11-25/2026-11-30/2/0/0'
+};
+const NOME_SITE = { 'Google Voos (GOL)': 'GOL (site da companhia)', 'MaxMilhas': 'MaxMilhas', 'Decolar': 'Decolar' };
+const brl = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+const quando = s => s.slice(8,10) + '/' + s.slice(5,7) + ' às ' + s.slice(11,16);
+const dur = m => Math.floor(m/60) + 'h' + (m%60 ? String(m%60).padStart(2,'0') : '');
+const desc = (cia, orig, part, cheg, mais, dest) => `${cia}, sai ${part} de ${orig === 'GIG' ? 'Galeão' : orig === 'SDU' ? 'Santos Dumont' : orig} e chega ${cheg}${mais ? ' do dia seguinte' : ''}`;
+async function carregar() {
+  const get = f => fetch('data/' + f + '?t=' + Date.now()).then(r => r.ok ? r.json() : []);
+  const [ofertas, combos, coletas] = await Promise.all([get('ofertas.json'), get('combos.json'), get('coletas.json')]);
+  // opções por coleta
+  const porColeta = new Map();
+  const add = (cid, o) => { if (!porColeta.has(cid)) porColeta.set(cid, []); porColeta.get(cid).push(o); };
+  const g = new Map();
+  for (const o of ofertas) {
+    const k = o.coleta_id; if (!g.has(k)) g.set(k, { ida: null, volta: null });
+    const x = g.get(k);
+    if (!x[o.sentido] || o.preco_total < x[o.sentido].preco_total) x[o.sentido] = o;
+  }
+  for (const [cid, x] of g) if (x.ida && x.volta) add(cid, { site: 'Google Voos (GOL)', preco: x.ida.preco_total + x.volta.preco_total,
+    ida: desc(x.ida.cia, x.ida.origem, x.ida.partida, x.ida.chegada, x.ida.chegada_mais_dias, 'CKS'),
+    volta: `${x.volta.cia}, sai ${x.volta.partida} de Carajás e chega ${x.volta.chegada}${x.volta.chegada_mais_dias ? ' do dia seguinte' : ''}`, em: cid });
+  for (const c of combos) add(c.coleta_id, { site: c.vendedor, preco: c.preco_total, obs: c.obs,
+    ida: desc(c.ida_cia, c.ida_origem, c.ida_partida, c.ida_chegada, c.ida_mais_dias, 'CKS'),
+    volta: `${c.volta_cia}, sai ${c.volta_partida} de Carajás e chega ${c.volta_chegada}${c.volta_mais_dias ? ' do dia seguinte' : ''}`, em: c.coleta_id });
+  const ids = [...porColeta.keys()].sort((a, b) => new Date(a) - new Date(b));
+  if (!ids.length) { document.getElementById('m-preco').textContent = 'Sem dados ainda'; return; }
+  const ultima = ids[ids.length - 1];
+  const agora = porColeta.get(ultima).sort((a, b) => a.preco - b.preco);
+  const best = agora[0];
+  document.getElementById('m-preco').textContent = brl(best.preco);
+  const onde = document.getElementById('m-onde');
+  onde.replaceChildren();
+  const l1 = document.createElement('div'); l1.innerHTML = '<b>Onde:</b> '; l1.append(NOME_SITE[best.site] || best.site, best.obs ? ' (' + best.obs + ')' : '');
+  const l2 = document.createElement('div'); l2.innerHTML = '<b>Ida:</b> '; l2.append(best.ida);
+  const l3 = document.createElement('div'); l3.innerHTML = '<b>Volta:</b> '; l3.append(best.volta);
+  onde.append(l1, l2, l3);
+  const ml = document.getElementById('m-link'); ml.href = LINKS[best.site] || '#'; ml.textContent = 'Ver esta passagem em ' + (NOME_SITE[best.site] || best.site);
+  // por site
+  const sites = document.getElementById('sites'); sites.replaceChildren();
+  const vistos = new Set();
+  for (const o of agora) { if (vistos.has(o.site)) continue; vistos.add(o.site);
+    const r = document.createElement('div'); r.className = 'row';
+    const left = document.createElement('div');
+    const n = document.createElement('div'); n.className = 'name'; n.textContent = NOME_SITE[o.site] || o.site;
+    const i = document.createElement('div'); i.className = 'info'; i.textContent = 'Ida: ' + o.ida;
+    const a = document.createElement('a'); a.href = LINKS[o.site] || '#'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Abrir site';
+    left.append(n, i, a);
+    const p = document.createElement('div'); p.className = 'price'; p.textContent = brl(o.preco);
+    r.append(left, p); sites.append(r);
+  }
+  for (const s of Object.keys(LINKS)) if (!vistos.has(s)) { const r = document.createElement('div'); r.className = 'row';
+    const n = document.createElement('div'); n.className = 'name'; n.textContent = NOME_SITE[s];
+    const p = document.createElement('div'); p.className = 'info'; p.textContent = 'não consultado nesta hora';
+    r.append(n, p); sites.append(r); }
+  // recorde e gráfico
+  const serie = ids.map(id => ({ id, v: Math.min(...porColeta.get(id).map(o => o.preco)) }));
+  let rec = serie[0]; for (const s of serie) if (s.v < rec.v) rec = s;
+  document.getElementById('recorde').textContent = brl(rec.v);
+  const recSite = porColeta.get(rec.id).sort((a, b) => a.preco - b.preco)[0].site;
+  document.getElementById('recorde-quando').textContent = 'Visto em ' + quando(rec.id) + ' em ' + (NOME_SITE[recSite] || recSite) + (best.preco === rec.v ? ' · o preço de agora é igual ao menor já visto' : ' · agora está ' + brl(best.preco - rec.v) + ' mais caro');
+  const svg = document.getElementById('grafico'); svg.replaceChildren();
+  const W = 600, H = 180, P = 34; const vs = serie.map(s => s.v); const lo = Math.min(...vs) * 0.95, hi = Math.max(...vs) * 1.05;
+  const x = i => serie.length < 2 ? W / 2 : P + i * (W - 2 * P) / (serie.length - 1); const y = v => H - 24 - (v - lo) / (hi - lo || 1) * (H - 44);
+  const ns = 'http://www.w3.org/2000/svg'; const mk = (t, at) => { const e = document.createElementNS(ns, t); for (const k in at) e.setAttribute(k, at[k]); svg.append(e); return e; };
+  if (serie.length > 1) mk('polyline', { points: serie.map((s, i) => x(i) + ',' + y(s.v)).join(' '), fill: 'none', stroke: 'currentColor', 'stroke-width': 2.5, 'stroke-linejoin': 'round' });
+  serie.forEach((s, i) => mk('circle', { cx: x(i), cy: y(s.v), r: 3.5, fill: 'currentColor' }));
+  mk('text', { x: P, y: H - 4 }).textContent = quando(serie[0].id);
+  if (serie.length > 1) mk('text', { x: W - P, y: H - 4, 'text-anchor': 'end' }).textContent = quando(serie[serie.length - 1].id);
+  mk('text', { x: 0, y: y(Math.max(...vs)) - 6 }).textContent = brl(Math.max(...vs));
+  if (Math.max(...vs) !== Math.min(...vs)) mk('text', { x: 0, y: y(Math.min(...vs)) + 16 }).textContent = brl(Math.min(...vs));
+  const ok = coletas.filter(c => c.status === 'ok').length;
+  document.getElementById('atualizado').textContent = 'Última atualização: ' + quando(ultima) + ' · ' + ids.length + (ids.length === 1 ? ' consulta' : ' consultas') + ' registradas.';
+}
+carregar().catch(() => { document.getElementById('m-preco').textContent = 'Não foi possível carregar'; document.getElementById('m-preco').className = 'big err'; });
+</script>
+</body>
+</html>
