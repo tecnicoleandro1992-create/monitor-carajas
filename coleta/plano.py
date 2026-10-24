@@ -56,7 +56,8 @@ if os.path.exists(p):
 viagens, erro_api = {}, ''
 try:
     req = urllib.request.Request(f'https://api.github.com/repos/{OWNER}/{REPO}/issues?state=all&per_page=100',
-                                 headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'monitor-carajas'})
+                                 headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'monitor-carajas',
+                                          **({'Authorization': 'Bearer ' + os.environ['GH_TOKEN']} if os.environ.get('GH_TOKEN') else {})})
     issues = json.load(urllib.request.urlopen(req, timeout=20))
     for it in sorted(issues, key=lambda x: x['number']):
         if 'pull_request' in it or (it.get('user') or {}).get('login') != OWNER: continue
@@ -65,6 +66,7 @@ try:
         if not d: continue
         i = vid(d['ida'], d['volta'], d['adultos'], d['flex'])
         ativa = it['state'] == 'open' and d['ida'] >= hoje
+        if i in viagens and viagens[i]['status'] == 'ativa' and not ativa: continue  # uma issue aberta vale mais que uma fechada repetida
         viagens[i] = {**d, 'id': i, 'issue': it['number'], 'issue_url': it['html_url'],
                       'status': 'ativa' if ativa else 'encerrada', 'criada_em': it['created_at']}
 except Exception as e:

@@ -1,1 +1,25 @@
-[{"ida": "2026-11-25", "volta": "2026-11-30", "adultos": 2, "flex": 0, "id": "2026-11-25_2026-11-30_2a_f0", "issue": 1, "issue_url": "https://github.com/tecnicoleandro1992-create/monitor-carajas/issues/1", "status": "ativa", "criada_em": "2026-10-23T19:49:58Z", "flex_usada": 0}]
+[
+ {
+  "ida": "2026-11-25",
+  "volta": "2026-11-30",
+  "adultos": 2,
+  "flex": 3,
+  "id": "2026-11-25_2026-11-30_2a_f3",
+  "issue": 2,
+  "issue_url": "https://github.com/tecnicoleandro1992-create/monitor-carajas/issues/2",
+  "status": "ativa",
+  "criada_em": "2026-10-23T21:13:11Z",
+  "flex_usada": 3
+ },
+ {
+  "ida": "2026-11-25",
+  "volta": "2026-11-30",
+  "adultos": 2,
+  "flex": 0,
+  "id": "2026-11-25_2026-11-30_2a_f0",
+  "issue": 1,
+  "issue_url": "https://github.com/tecnicoleandro1992-create/monitor-carajas/issues/1",
+  "status": "encerrada",
+  "criada_em": "2026-10-23T19:49:58Z"
+ }
+]

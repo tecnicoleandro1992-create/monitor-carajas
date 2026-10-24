@@ -5,6 +5,8 @@ on:
     branches: [main]
   issue_comment:
     types: [created]
+  issues:
+    types: [opened, edited, closed, reopened, deleted]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +21,7 @@ concurrency:
 
 jobs:
   site:
-    # Só comentários do dono do repositório na issue "Coletas" contam.
+    # Comentários só contam se forem do dono do repositório, na issue "Coletas", com dados de coleta.
     if: >-
       github.event_name != 'issue_comment' ||
       (github.event.comment.user.login == github.repository_owner &&
@@ -32,22 +34,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Atualizar lista de viagens (issues "Monitorar")
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/plano && cd /tmp/plano
+          python3 "$GITHUB_WORKSPACE/coleta/plano.py" "$(TZ=America/Sao_Paulo date +%Y-%m-%dT%H:%M-03:00)" "$GITHUB_WORKSPACE/data"
+          cp viagens.json "$GITHUB_WORKSPACE/data/viagens.json"
+
       - name: Aplicar coleta do comentário
         if: github.event_name == 'issue_comment'
         env:
           CORPO: ${{ github.event.comment.body }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           printf '%s' "$CORPO" > /tmp/comentario.txt
           python3 coleta/aplicar.py /tmp/comentario.txt
+
+      - name: Salvar dados
+        run: |
           if [ -n "$(git status --porcelain data)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data
-            git commit -m "Coleta $(python3 -c "import json;print(json.load(open('data/coletas.json'))[-1]['coleta_id'])")"
+            git commit -m "Dados atualizados (${{ github.event_name }})"
+            git pull --rebase origin main
             git push
           fi
-          gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}" || true
+
+      - name: Apagar o comentário processado
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}" || true
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
